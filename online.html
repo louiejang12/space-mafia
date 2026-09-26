@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script src="sound.js"></script>
 <style>
 :root{
   --space:#0A0E1F; --space-2:#10163A; --panel:#161D3D; --panel-2:#212A55; --line:#2E3A6C;
@@ -389,21 +390,39 @@ function speak(t) {
     u.lang = 'ko-KR'; u.rate = 1.05;
     const v = ss.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
     if (v) u.voice = v;
+    if (SND) { u.onstart = () => SND.duck(true); u.onend = u.onerror = () => SND.duck(false); }
     ss.speak(u);
   } catch (e) {}
 }
-let actx = null;
-function beep() {
-  try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    [0, .28].forEach(off => {
-      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + off;
-      o.type = 'square'; o.frequency.value = 880;
-      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.18, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .24);
-      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + .26);
-    });
-  } catch (e) {}
+
+/* 배경음악·효과음 (sound.js). 기본으로 방장 폰에서만 난다.
+   여러 폰에서 동시에 나면 소리가 겹치고 어긋나기 때문이다.
+   소리는 모두가 함께 보는 순간에만 낸다. 밤 선택, 경찰 결과, 마피아 동료 선택, 비밀 투표에는 소리가 없어서
+   소리만 듣고는 누가 무엇을 했는지 알 수 없다. */
+const SND = window.SpaceSound || null;
+const sfx = (name, delay) => { if (SND) SND.play(name, delay); };
+const soundPref = k => { const p = LS.get('sm.' + k); return p == null ? net.mode !== 'client' : !!p; };
+function applySound() { if (SND) { SND.setMusic(soundPref('music')); SND.setSfx(soundPref('sfx')); } }
+const PHASE_SCENE = {lobby:'lobby', roles:'lobby', night:'night', dawn:null, discuss:null, vote:'tension', voteResult:null, defense:null, confirm:'tension', confirmResult:null, execute:null};
+function onPhase(v, prev) {
+  if (!SND) return;
+  applySound();
+  if (prev && v.phase === 'lobby' && prev.phase === 'lobby' && v.players.length > prev.players.length) sfx('pop');
+  if (prev && prev.phase === v.phase && prev.day === v.day) return;
+  if (v.phase in PHASE_SCENE) SND.scene(PHASE_SCENE[v.phase]);
+  if (!prev) { if (v.phase === 'end') SND.scene('lobby'); return; }   // 막 접속한 폰은 지난 효과음을 다시 내지 않는다
+  const ph = v.phase;
+  if (ph === 'night') sfx('night');
+  else if (ph === 'dawn') { sfx('dawn'); sfx(v.dawn && v.dawn.victim ? 'death' : 'safe', 1.1); }
+  else if (ph === 'vote') sfx('alarm');
+  else if (ph === 'voteResult' || ph === 'confirmResult') sfx('reveal');
+  else if (ph === 'execute') sfx('eject');
+  else if (ph === 'end') {
+    SND.scene(null); sfx(v.winner === 'mafia' ? 'mafiaWin' : 'townWin');
+    setTimeout(() => { if (V && V.phase === 'end') SND.scene('lobby'); }, 4500);
+  }
 }
+function beep() { sfx('buzzer'); }
 let wake = null;
 function keepAwake() {
   try { if (!wake && navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wake = w; w.addEventListener('release', () => wake = null); }).catch(() => {}); } catch (e) {}
@@ -862,6 +881,7 @@ function leaveToHome(err) {
   net.mode = null; net.joined = false;
   H = null; V = null;
   Object.assign(L, {screen:'home', err:err || '', info:'', lost:false, sheet:null, quitArm:false, sel:null, flip:false, key:'', spoken:null});
+  applySound(); if (SND) SND.scene('lobby');
   render();
 }
 const fail = msg => leaveToHome(msg);
@@ -878,9 +898,11 @@ function setView(v) {
   if (key !== L.key) { L.key = key; L.sel = null; L.flip = false; }
   if (v.timer) v.timer.localEnd = Date.now() + v.timer.remaining;
   if (V === null && net.mode === 'client') L.spoken = v.lineSeq;
+  const prev = V;
   V = v;
   if (v.lineSeq !== L.spoken) { L.spoken = v.lineSeq; if (ttsOn()) speak(v.line); }
   render();
+  onPhase(v, prev);
 }
 
 let toastTimer = null;
@@ -1090,7 +1112,7 @@ const ROOM = {
   discuss() {
     return {
       body: `<div class="chips" style="justify-content:center"><span class="chip">${V.day}일차 낮 · 토론</span></div>${timerBlock(false)}
-        <div class="sect">생존자 ${vAlive().length}명</div><div class="roster">${V.players.map(mini).join('')}</div>`,
+        <p class="hint" style="text-align:center;margin-bottom:16px">${V.isHost ? "방장 폰을 가운데 두고" : "폰은 내려놓고"} 얼굴 보며 이야기하세요. 1분 남았을 때와 끝날 때 방장 폰에서 소리로 알려드려요.</p><div class="sect">생존자 ${vAlive().length}명</div><div class="roster">${V.players.map(mini).join('')}</div>`,
       foot: hostFoot('투표로 넘어가기', 'red'),
     };
   },
@@ -1238,6 +1260,8 @@ function sheetHtml() {
       <h3>메뉴</h3>
       ${V ? `<div class="chips"><span class="chip">방 코드 ${esc(V.code)}</span><span class="chip">${net.mode === 'host' ? '내가 방장' : '참가자'}</span></div>` : ''}
       <div class="srow"><span class="lbl"><span>이 폰에서 음성 안내<small>보통 방장 폰에서만 켜요</small></span></span><button class="switch" data-act="tts" aria-pressed="${ttsOn()}" aria-label="음성 안내"><i></i></button></div>
+      <div class="srow"><span class="lbl"><span>이 폰에서 배경음악<small>토론 중에는 대화를 위해 꺼져요</small></span></span><button class="switch" data-act="snd" data-k="music" aria-pressed="${soundPref('music')}" aria-label="배경음악"><i></i></button></div>
+      <div class="srow"><span class="lbl"><span>이 폰에서 효과음<small>밤·아침·투표처럼 모두 보는 순간에만 나요</small></span></span><button class="switch" data-act="snd" data-k="sfx" aria-pressed="${soundPref('sfx')}" aria-label="효과음"><i></i></button></div>
       <details class="howto" style="margin:0"><summary>게임 방법</summary>${RULES}</details>
       ${net.mode === 'host' && V && V.phase !== 'lobby' ? `<button class="btn ghost" data-act="toLobby">게임 중단하고 대기실로</button>` : ''}
       ${inRoom ? `<button class="btn ghost" data-act="quit" style="${L.quitArm ? 'border-color:var(--danger);color:var(--danger)' : ''}">${L.quitArm ? `한 번 더 누르면 ${quitLabel}` : quitLabel}</button>` : ''}
@@ -1279,6 +1303,11 @@ const UIACT = {
   menu() { L.sheet = 'menu'; L.quitArm = false; render(); },
   closeSheet() { L.sheet = null; L.quitArm = false; render(); },
   tts() { LS.set('sm.tts', !ttsOn()); if (!ttsOn()) try { speechSynthesis.cancel(); } catch (e) {} render(); },
+  snd(d) {
+    LS.set('sm.' + d.k, !soundPref(d.k)); applySound();
+    if (SND && V && d.k === 'music') SND.scene(V.phase === 'end' ? 'lobby' : PHASE_SCENE[V.phase]);
+    render();
+  },
   quit() {
     if (!L.quitArm) { L.quitArm = true; render(); return; }
     if (net.mode === 'host') closeRoom(); else { LS.del('sm.client'); leaveToHome(''); }
@@ -1420,6 +1449,11 @@ document.addEventListener('click', e => {
   if (!el || el.disabled) return;
   keepAwake();
   if (!L.unlocked) { L.unlocked = true; try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (err) {} }
+  if (SND) {
+    SND.unlock();
+    // 버튼 소리는 대기실·홈·메뉴에서만. 게임 중에는 누르는 소리로 행동이 드러나지 않게 한다.
+    if (L.sheet || L.screen === 'home' || (V && L.screen === 'room' && V.phase === 'lobby')) sfx('click');
+  }
   const f = UIACT[el.dataset.act];
   if (f) f(el.dataset, el);
 });
@@ -1440,7 +1474,7 @@ document.addEventListener('keydown', e => {
 setInterval(() => {
   // 방장: 타이머 종료
   if (net.mode === 'host' && H && (H.phase === 'discuss' || H.phase === 'defense') && H.timer && !H.timer.done && hTimeLeft() <= 0) {
-    H.timer.done = true; beep();
+    H.timer.done = true;
     setLine(H.phase === 'discuss' ? '토론 시간이 끝났습니다. 방장은 투표를 시작해 주세요.' : '변론 시간이 끝났습니다. 방장은 찬반 투표를 시작해 주세요.');
     hostChanged();
   }
@@ -1451,6 +1485,17 @@ setInterval(() => {
     if (n) n.textContent = mmss(left);
     if (ring) ring.style.strokeDashoffset = C * (1 - left / V.timer.total);
     if (box) box.classList.toggle('low', left <= 10000);
+    // 사람들은 화면 대신 서로 얼굴을 보고 있으니, 남은 시간은 소리로 알린다 (소리를 켠 폰에서만)
+    const tk = L.tk && L.tk.key === L.key ? L.tk : (L.tk = {key:L.key, last:null, w60:left <= 60000, end:left <= 0});
+    const sec = Math.ceil(left / 1000);
+    if (V.phase === 'discuss' && !tk.w60 && V.timer.total > 90000 && sec <= 60) {
+      tk.w60 = true; sfx('chime');
+      if (net.mode === 'host' && H && H.phase === 'discuss') { setLine('1분 남았습니다.'); hostChanged(); }
+    }
+    if (left > 60000) tk.w60 = false;
+    if (!V.timer.paused && sec > 0 && sec <= (V.phase === 'discuss' ? 10 : 5) && sec !== tk.last) { tk.last = sec; sfx('tick'); }
+    if (left > 0) tk.end = false;
+    else if (!tk.end) { tk.end = true; beep(); }
   }
 }, 250);
 
@@ -1478,6 +1523,7 @@ document.addEventListener('visibilitychange', () => {
   else if (!net.awaiting) { try { net.conn.send({t:'ping'}); net.awaiting = Date.now(); } catch (e) {} }
 });
 
+applySound(); if (SND) SND.scene("lobby");
 render();
 })();
 </script>
