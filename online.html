@@ -1,0 +1,1485 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>우주선 마피아 온라인</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A0E1F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<style>
+:root{
+  --space:#0A0E1F; --space-2:#10163A; --panel:#161D3D; --panel-2:#212A55; --line:#2E3A6C;
+  --ink:#EEF1FA; --muted:#9AA4CA; --dim:#5F6A96;
+  --hazard:#F7C948; --hazard-2:#B98A12; --hazard-ink:#1C1604;
+  --danger:#FF5A5A; --danger-2:#A8222F; --ok:#4BE38F; --info:#62B4FF;
+  --display:'Black Han Sans','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+  --body:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{box-sizing:border-box;height:100%;background:var(--space)}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;
+  background:radial-gradient(ellipse 120% 60% at 85% -10%,#1C2A6E 0%,transparent 60%),var(--space);
+  -webkit-tap-highlight-color:transparent;overflow:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.7;
+  background-image:
+    radial-gradient(1px 1px at 25px 35px,#fff 50%,transparent 51%),
+    radial-gradient(1px 1px at 150px 80px,#ffffffaa 50%,transparent 51%),
+    radial-gradient(1.6px 1.6px at 80px 170px,#cfe0ff 50%,transparent 51%),
+    radial-gradient(1px 1px at 195px 125px,#ffffff88 50%,transparent 51%),
+    radial-gradient(2px 2px at 55px 215px,#fff3c0 50%,transparent 51%),
+    radial-gradient(1px 1px at 120px 20px,#ffffff77 50%,transparent 51%);
+  background-size:220px 240px;animation:drift 140s linear infinite}
+@keyframes drift{to{background-position:-220px 480px}}
+button{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+h2,h3{text-wrap:balance}
+a{color:var(--hazard)}
+:focus-visible{outline:3px solid var(--info);outline-offset:2px}
+[hidden]{display:none!important}
+
+#app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;max-width:560px;margin-inline:auto;padding-inline:16px}
+main{flex:1;min-height:0;overflow-y:auto;padding-block:8px 20px;scrollbar-width:none}
+main::-webkit-scrollbar{display:none}
+footer{display:flex;flex-direction:column;gap:10px;padding-block:10px 16px}
+
+.host{display:grid;grid-template-columns:52px 1fr 44px;gap:10px;align-items:start;padding-block:12px 6px}
+.host-av{background:none;border:0;padding:0;cursor:pointer}
+.host-av svg{width:52px;display:block}
+.bubble{background:var(--panel);border:1px solid var(--line);border-radius:4px 16px 16px 16px;padding:7px 12px 9px;cursor:pointer;min-height:44px}
+.bubble .who{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.14em;color:var(--hazard);font-weight:700}
+.bubble .who em{font-style:normal;color:var(--muted);letter-spacing:.06em}
+.bubble p{font-size:15px;line-height:1.45;word-break:keep-all}
+.icon-btn{width:44px;height:44px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:20px;cursor:pointer;display:grid;place-items:center}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:58px;padding:0 18px;border:0;border-radius:14px;
+  font-family:var(--display);font-size:21px;letter-spacing:.01em;background:var(--hazard);color:var(--hazard-ink);
+  box-shadow:0 5px 0 var(--hazard-2);cursor:pointer;transition:transform .08s,box-shadow .08s}
+.btn:active:not(:disabled){transform:translateY(4px);box-shadow:0 1px 0 var(--hazard-2)}
+.btn:disabled{background:var(--panel-2);color:var(--dim);box-shadow:0 5px 0 #121936;cursor:not-allowed}
+.btn.red{background:var(--danger);color:#fff;box-shadow:0 5px 0 var(--danger-2)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:none;border:1.5px solid var(--line);font-family:var(--body);font-weight:700;font-size:16px;min-height:50px}
+.btn.ghost:active{transform:none;background:var(--panel)}
+.btn.sm{min-height:44px;font-size:15px}
+.link{background:none;border:0;color:var(--hazard);font-weight:700;font-size:14px;cursor:pointer;padding:4px}
+
+.crew{display:block;width:56px;height:auto;overflow:visible}
+.crew.xs{width:22px}.crew.sm{width:36px}.crew.md{width:84px}.crew.lg{width:120px}
+.crew.dead{filter:grayscale(1) brightness(.5)}
+.crew.fallen{transform:rotate(-88deg) translateX(-14%)}
+.bob{animation:bob 3.2s ease-in-out infinite}
+.d1{animation-delay:-.5s}.d2{animation-delay:-1.1s}.d3{animation-delay:-1.7s}.d4{animation-delay:-2.2s}.d5{animation-delay:-2.8s}
+@keyframes bob{50%{transform:translateY(-8px) rotate(-3deg)}}
+
+.center{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px}
+.center.auto{min-height:auto;margin-bottom:16px}
+.eyebrow{font-size:12px;letter-spacing:.16em;color:var(--muted);font-weight:700}
+.big{font-family:var(--display);font-size:clamp(38px,12vw,58px);line-height:1.05;word-break:keep-all;font-weight:400}
+.lede{color:var(--muted);max-width:34ch;word-break:keep-all}
+.hint{color:var(--muted);font-size:13.5px;word-break:keep-all}
+.err{color:var(--danger);font-size:14px;text-align:center;font-weight:700;word-break:keep-all}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:var(--panel-2);font-size:13px;color:var(--muted);font-weight:500}
+.stripe{height:10px;border-radius:3px;background:repeating-linear-gradient(-45deg,var(--hazard) 0 12px,var(--hazard-ink) 12px 24px)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px}
+.sect{font-size:13px;letter-spacing:.14em;color:var(--muted);font-weight:700;margin-block:4px 10px}
+.lost{background:#5a1720;color:#ffd0d0;border-radius:12px;padding:8px 12px;font-size:14px;margin-bottom:10px;text-align:center;font-weight:700}
+.waitnote{text-align:center;color:var(--muted);font-size:14px;padding:12px;border:1.5px dashed var(--line);border-radius:14px;word-break:keep-all}
+
+/* 홈 */
+.hero{display:flex;flex-direction:column;gap:14px;padding-top:4px;margin-bottom:18px}
+.crowd{display:flex;justify-content:center;gap:2px}
+.crowd .crew{width:clamp(38px,12vw,54px)}
+.crowd .crew:nth-child(even){margin-top:16px}
+.title{font-family:var(--display);font-size:clamp(52px,17vw,84px);line-height:.92;font-weight:400}
+.title span{color:var(--hazard)}
+.tag{display:inline-block;font-size:12px;letter-spacing:.14em;font-weight:700;color:var(--hazard-ink);background:var(--hazard);padding:3px 10px;border-radius:6px;align-self:flex-start}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.06em}
+.pname{width:100%;min-width:0;background:var(--space-2);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;font-size:17px}
+.pname:focus{outline:2px solid var(--hazard);outline-offset:0;border-color:transparent}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin-block:18px 12px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.joinrow{display:grid;grid-template-columns:1fr 112px;gap:10px}
+.codeinput{font-family:var(--display);font-size:32px;letter-spacing:.35em;text-align:center;padding:6px 8px}
+.stack{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.howto{margin-top:16px}
+.howto summary{cursor:pointer;font-weight:700;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;list-style:none}
+.howto summary::after{content:"＋";float:right;color:var(--hazard)}
+.howto[open] summary::after{content:"－"}
+.rules{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--muted);font-size:14.5px;word-break:keep-all}
+.rules b{color:var(--ink);margin-right:6px}
+
+/* 대기실 */
+.codebox{text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:22px;overflow:hidden;margin-bottom:18px}
+.codebox .in{padding:16px}
+.code{font-family:var(--display);font-size:68px;letter-spacing:.2em;line-height:1.05;color:var(--hazard);font-variant-numeric:tabular-nums;padding-left:.2em}
+.qrbox{display:block;background:#fff;border:0;border-radius:16px;padding:12px;width:min(52vw,190px);margin:12px auto 8px;cursor:zoom-in}
+.qrbox svg{display:block;width:100%;height:auto}
+.qrbig .qrbox{width:min(78vw,340px);cursor:default;margin-block:4px}
+.info{color:var(--hazard);font-size:14px;text-align:center;font-weight:700;word-break:keep-all}
+.scanwrap{position:relative;width:100%;max-width:420px;aspect-ratio:1;margin:0 auto 12px;border-radius:22px;overflow:hidden;background:#000;border:1px solid var(--line)}
+.scanwrap.off{max-width:220px;opacity:.5}
+.scanwrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scanframe{position:absolute;inset:14%;border-radius:18px;border:3px solid var(--hazard);box-shadow:0 0 0 999px #0009}
+.scanframe::after{content:"";position:absolute;left:6%;right:6%;top:8%;height:2px;background:var(--hazard);box-shadow:0 0 12px var(--hazard);animation:scanl 1.8s ease-in-out infinite alternate}
+@keyframes scanl{to{top:90%}}
+.blk{margin-bottom:18px}
+.blk-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.blk-h h3{font-size:13px;letter-spacing:.14em;color:var(--muted)}
+.count{font-family:var(--display);color:var(--hazard);font-size:18px}
+.plist2{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:6px}
+.plist2 li{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:8px 10px 8px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;min-height:54px}
+.plist2 .crew{width:30px}
+.plist2 .nmx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rowr{display:flex;align-items:center;gap:8px}
+.online{width:9px;height:9px;border-radius:50%;background:var(--ok);display:inline-block;box-shadow:0 0 0 3px #4be38f22}
+.online.off{background:var(--dim);box-shadow:none}
+.badge{font-size:11px;padding:2px 7px;border-radius:99px;background:var(--panel-2);color:var(--hazard);font-weight:700;margin-left:6px}
+.state{font-size:12px;color:var(--muted);margin-left:6px;font-weight:400}
+.x{width:36px;height:36px;border-radius:10px;background:transparent;border:1px solid var(--line);color:var(--muted);cursor:pointer}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:6px;min-height:58px}
+.srow .lbl{display:flex;align-items:center;gap:10px;font-weight:500;word-break:keep-all}
+.srow .lbl small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.dot.mafia{background:var(--danger)}.dot.police{background:var(--info)}.dot.doctor{background:var(--ok)}.dot.citizen{background:var(--hazard)}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);font-size:18px;cursor:pointer}
+.num{font-family:var(--display);font-weight:400;font-size:22px;min-width:2.2em;text-align:center;font-variant-numeric:tabular-nums}
+.step .num.wide{min-width:4.6em;font-size:17px}
+.switch{flex:none;width:52px;height:30px;border-radius:99px;border:0;background:var(--panel-2);position:relative;cursor:pointer;transition:background .15s}
+.switch i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
+.switch[aria-pressed="true"]{background:var(--hazard)}
+.switch[aria-pressed="true"] i{transform:translateX(22px);background:var(--hazard-ink)}
+.summary{display:flex;flex-wrap:wrap;gap:6px}
+
+/* 역할 카드 */
+.wholine{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-weight:700}
+.rolecard{position:relative;display:block;width:100%;border-radius:24px;min-height:min(56vh,420px);border:2px dashed var(--line);background:var(--panel);
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;overflow:hidden;cursor:pointer;padding:0}
+.rolecard .cover,.rolecard .reveal{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px}
+.rolecard .reveal{visibility:hidden}
+.rolecard.show .reveal{visibility:visible}
+.rolecard.show .cover{visibility:hidden}
+.rolecard.show{border-style:solid}
+.fp{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:34px;color:var(--hazard);
+  background:var(--panel-2);box-shadow:0 0 0 0 #f7c94866;animation:pulse 2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 22px #f7c94800}100%{box-shadow:0 0 0 0 #f7c94800}}
+.cover b{font-size:18px}.cover .csub{color:var(--muted);font-size:14px}
+.rname{font-family:var(--display);font-size:56px;line-height:1}
+.rteam{font-size:13px;letter-spacing:.14em;font-weight:700;opacity:.8}
+.rdesc{max-width:30ch;word-break:keep-all;font-size:15px}
+[data-role="mafia"] .reveal{background:linear-gradient(165deg,#47111D,#1B0710)}[data-role="mafia"] .rname{color:var(--danger)}
+[data-role="police"] .reveal{background:linear-gradient(165deg,#0F2B57,#0A1330)}[data-role="police"] .rname{color:var(--info)}
+[data-role="doctor"] .reveal{background:linear-gradient(165deg,#0D3E2A,#07170F)}[data-role="doctor"] .rname{color:var(--ok)}
+[data-role="citizen"] .reveal{background:linear-gradient(165deg,#3B3314,#15120A)}[data-role="citizen"] .rname{color:var(--hazard)}
+.mates{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;align-items:center;font-size:14px}
+.mates>span{width:100%;font-size:12px;letter-spacing:.12em;color:#ffb3b3;font-weight:700}
+.mates i{font-style:normal;display:inline-flex;align-items:center;gap:6px;background:#0006;border-radius:99px;padding:4px 10px 4px 6px}
+
+/* 선택 */
+.nighthead{display:flex;justify-content:space-between;gap:8px;margin-bottom:10px}
+.ask{font-family:var(--display);font-size:26px;line-height:1.25;margin-bottom:12px;word-break:keep-all;font-weight:400}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:12px;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.note .mate{display:flex;align-items:center;gap:8px}
+.note .mate .crew{width:22px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tile{position:relative;background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:12px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;font-weight:700;font-size:14px;cursor:pointer}
+.tile .crew{width:52px}
+.tile .nm{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile.sel{border-color:var(--hazard);background:#27294A;box-shadow:0 0 0 3px #f7c94830}
+.tile.sel::after{content:"✓";position:absolute;top:5px;left:9px;color:var(--hazard);font-weight:900}
+.tile .ttag{position:absolute;top:6px;right:6px;font-size:10.5px;padding:1px 7px;border-radius:99px;background:var(--panel-2);color:var(--muted)}
+.tile .ttag.bad{background:#5a1720;color:#ffb3b3}
+.tile.skip .qm{width:52px;height:59px;display:grid;place-items:center;font-family:var(--display);font-size:30px;color:var(--dim);border:2px dashed var(--line);border-radius:14px}
+.result{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:24px 16px;background:var(--panel);border:1px solid var(--line);border-radius:22px;margin-bottom:14px}
+.result .verdict{font-family:var(--display);font-size:32px;line-height:1.15;word-break:keep-all}
+.is-mafia{color:var(--danger)}.not-mafia{color:var(--ok)}
+.pbar{height:10px;border-radius:99px;background:var(--panel-2);overflow:hidden;margin-top:6px}
+.pbar i{display:block;height:100%;background:var(--hazard);border-radius:99px;transition:width .3s}
+.progress{margin-block:6px 14px}
+.progress .hint{margin-top:6px;text-align:center}
+.hostbox{border:1.5px solid #f7c94866;background:#f7c9480d;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.hostbox .hb-t{font-size:12px;letter-spacing:.14em;color:var(--hazard);font-weight:700}
+.hostbox .names{display:flex;flex-wrap:wrap;gap:6px}
+
+.moon{width:110px;height:110px;border-radius:50%;box-shadow:inset -26px 10px 0 0 #F4E7B5;transform:rotate(-20deg);margin:6px auto 12px}
+.sun{width:96px;height:96px;border-radius:50%;background:radial-gradient(circle,#FFE38A 0 45%,#F7A93822 46% 100%);margin-bottom:4px}
+.victim{height:140px;display:grid;place-items:center}
+
+.timer{position:relative;width:min(68vw,250px);aspect-ratio:1;max-width:100%;margin:6px auto 12px}
+.timer.small{width:min(48vw,180px)}
+.timer svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.timer .track{fill:none;stroke:var(--panel-2);stroke-width:12}
+.timer .prog{fill:none;stroke:var(--hazard);stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset .25s linear}
+.timer .tin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.tnum{font-family:var(--display);font-size:clamp(48px,15vw,64px);line-height:1;font-variant-numeric:tabular-nums}
+.timer.small .tnum{font-size:40px}
+.tsub{font-size:13px;color:var(--muted)}
+.timer.low .tnum{color:var(--danger)}.timer.low .prog{stroke:var(--danger)}
+.tctl{display:flex;gap:8px;justify-content:center;margin-bottom:18px}
+.tctl .btn{width:auto;min-width:120px}
+.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:10px 6px}
+.mini{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;text-align:center}
+.mini .crew{width:40px}
+.mini span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini.dead{opacity:.5}.mini.dead span{text-decoration:line-through}
+.mini small{font-size:10.5px;color:var(--muted)}
+.mini.off .crew{opacity:.45}
+
+.emergency{background:var(--panel);border:1px solid var(--line);border-radius:22px;overflow:hidden;text-align:center;margin-bottom:14px}
+.emergency .in{padding:18px 16px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.ebtn{width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 36% 30%,#FF9B9B,#D3202D 55%,#7B0D16);box-shadow:0 7px 0 #4A0710,0 0 0 8px #2A304F;margin:4px 0 10px}
+.etitle{font-family:var(--display);font-size:30px;line-height:1}
+
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:center}
+.bar-row .crew{width:34px}
+.bar{position:relative;height:34px;border-radius:9px;background:var(--panel-2);overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:#5B6696;border-radius:9px}
+.bar-row.top .bar i{background:var(--danger)}
+.bar span{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:700;font-size:14px}
+.bar span b{font-family:var(--display);font-weight:400;font-size:18px;font-variant-numeric:tabular-nums}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.choice{border-radius:20px;border:2px solid var(--line);background:var(--panel);padding:26px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+.choice b{font-family:var(--display);font-weight:400;font-size:30px}
+.choice span{font-size:13px;color:var(--muted)}
+.choice.yes b{color:var(--danger)}.choice.no b{color:var(--ok)}
+.choice[aria-pressed="true"]{border-color:var(--hazard);background:#27294A;box-shadow:0 0 0 3px #f7c94830}
+
+.eject{position:relative;height:200px;border-radius:22px;overflow:hidden;background:#03050D;border:1px solid var(--line);margin-bottom:16px}
+.eject::before{content:"";position:absolute;inset:0;opacity:.8;
+  background-image:radial-gradient(1px 1px at 20px 30px,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90px 120px,#fff 50%,transparent 51%),radial-gradient(1px 1px at 160px 60px,#fffa 50%,transparent 51%);
+  background-size:180px 150px;animation:streak 1.2s linear infinite}
+@keyframes streak{to{background-position:-180px 0}}
+.eject .crew{position:absolute;top:50%;width:84px;animation:eject 4.5s linear forwards}
+@keyframes eject{0%{left:-100px;transform:translateY(-50%) rotate(0)}100%{left:105%;transform:translateY(-50%) rotate(620deg)}}
+
+.winner{border-radius:22px;padding:22px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:18px}
+.winner.mafia{background:linear-gradient(165deg,#5A1220,#1B0710)}
+.winner.town{background:linear-gradient(165deg,#123A6B,#0A1330)}
+.winner .crowd{flex-wrap:wrap;gap:4px}
+.winner .crowd .crew{width:44px;margin-top:0}
+.wtitle{font-family:var(--display);font-size:clamp(40px,12vw,54px);line-height:1.05}
+.pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--panel-2)}
+.pill.mafia{background:#5a1720;color:#ffb3b3}.pill.police{background:#12305c;color:#b5d8ff}.pill.doctor{background:#0f4029;color:#aef0c9}.pill.citizen{background:#3a3316;color:#ffe7a1}
+.timeline{list-style:none;margin:0 0 12px;padding:0;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.timeline li{padding-left:14px;position:relative;font-size:14px;word-break:keep-all}
+.timeline li::before{content:"";position:absolute;left:-6px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--hazard)}
+.timeline li.n::before{background:#8C7CF0}
+.timeline b{display:block;font-size:12px;letter-spacing:.1em;color:var(--muted)}
+.stat{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.stat .crew{width:44px}
+
+.sheet-bg{position:fixed;inset:0;z-index:20;background:#02040cb3;display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:560px;max-height:84%;overflow:auto;background:var(--space-2);border-top:1px solid var(--line);border-radius:22px 22px 0 0;
+  padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+.sheet h3{font-family:var(--display);font-weight:400;font-size:22px}
+.cgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.cgrid button{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 2px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;cursor:pointer;color:var(--muted)}
+.cgrid button .crew{width:34px}
+.cgrid button[aria-pressed="true"]{border-color:var(--hazard);color:var(--ink)}
+.cgrid button:disabled{opacity:.35;cursor:not-allowed}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--ink);color:var(--space);font-weight:700;font-size:14px;padding:8px 14px;border-radius:99px;max-width:calc(100% - 32px);text-align:center}
+
+@media (max-width:360px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .eject .crew{left:50%;transform:translate(-50%,-50%) rotate(-20deg)}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <clipPath id="crewBodyClip"><path d="M28 50C28 22 42 6 62 6C82 6 94 20 94 44L94 102Q94 112 84 112L76 112Q68 112 68 104L68 98L56 98L56 106Q56 114 48 114L38 114Q28 114 28 104Z"/></clipPath>
+    <clipPath id="crewVisorClip"><path d="M50 32Q50 18 64 18L88 18Q102 18 102 32Q102 46 88 46L64 46Q50 46 50 32Z"/></clipPath>
+    <symbol id="crew" viewBox="0 0 108 122">
+      <path d="M32 50L20 50Q8 50 8 62L8 84Q8 96 20 96L32 96Z" fill="var(--s)" stroke="#0B0B12" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M28 50C28 22 42 6 62 6C82 6 94 20 94 44L94 102Q94 112 84 112L76 112Q68 112 68 104L68 98L56 98L56 106Q56 114 48 114L38 114Q28 114 28 104Z" fill="var(--b)"/>
+      <path clip-path="url(#crewBodyClip)" d="M16 10Q30 70 62 90Q82 100 106 96L106 124L8 124Z" fill="var(--s)"/>
+      <path d="M28 50C28 22 42 6 62 6C82 6 94 20 94 44L94 102Q94 112 84 112L76 112Q68 112 68 104L68 98L56 98L56 106Q56 114 48 114L38 114Q28 114 28 104Z" fill="none" stroke="#0B0B12" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M50 32Q50 18 64 18L88 18Q102 18 102 32Q102 46 88 46L64 46Q50 46 50 32Z" fill="#95CADC"/>
+      <path clip-path="url(#crewVisorClip)" d="M44 37Q76 46 108 35L108 52L44 52Z" fill="#4E7189"/>
+      <path d="M50 32Q50 18 64 18L88 18Q102 18 102 32Q102 46 88 46L64 46Q50 46 50 32Z" fill="none" stroke="#0B0B12" stroke-width="5"/>
+      <ellipse cx="86" cy="26" rx="8" ry="3.4" fill="#fff" opacity=".92"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div id="app"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* =========================================================
+   공통 데이터
+   ========================================================= */
+const COLORS = [
+  {id:'red',name:'빨강',body:'#C51111',shade:'#7A0838'},
+  {id:'blue',name:'파랑',body:'#132ED1',shade:'#09158E'},
+  {id:'green',name:'초록',body:'#117F2D',shade:'#0A4D2E'},
+  {id:'pink',name:'분홍',body:'#ED54BA',shade:'#AB2BAD'},
+  {id:'orange',name:'주황',body:'#EF7D0D',shade:'#B33E15'},
+  {id:'yellow',name:'노랑',body:'#F5F557',shade:'#C38823'},
+  {id:'black',name:'검정',body:'#3F474E',shade:'#1E1F26'},
+  {id:'white',name:'하양',body:'#D6E0F0',shade:'#8394BF'},
+  {id:'purple',name:'보라',body:'#6B2FBB',shade:'#3B177C'},
+  {id:'brown',name:'갈색',body:'#71491E',shade:'#5E2615'},
+  {id:'cyan',name:'민트',body:'#38FEDC',shade:'#24A8BE'},
+  {id:'lime',name:'라임',body:'#50EF39',shade:'#15A742'},
+  {id:'maroon',name:'와인',body:'#6B2B3C',shade:'#41181B'},
+  {id:'rose',name:'로즈',body:'#ECC0D3',shade:'#DE92B3'},
+  {id:'banana',name:'바나나',body:'#FFFEBE',shade:'#D2BC89'},
+  {id:'gray',name:'회색',body:'#708496',shade:'#475866'},
+  {id:'tan',name:'베이지',body:'#928776',shade:'#51413E'},
+  {id:'coral',name:'코랄',body:'#EC7578',shade:'#B4435E'},
+];
+const CMAP = Object.fromEntries(COLORS.map(c => [c.id, c]));
+const ROLES = {
+  mafia:  {name:'마피아', team:'mafia', was:'마피아였습니다', desc:'밤마다 동료와 함께 한 명을 제거해요. 살아있는 마피아 수가 나머지 인원과 같아지면 승리해요.'},
+  police: {name:'경찰', team:'town', was:'경찰이었습니다', desc:'밤마다 한 명을 조사해 마피아인지 알아내요. 결과는 나만 볼 수 있어요.'},
+  doctor: {name:'의사', team:'town', was:'의사였습니다', desc:'밤마다 한 명을 골라 마피아의 공격으로부터 지켜요.'},
+  citizen:{name:'시민', team:'town', was:'시민이었습니다', desc:'특별한 능력은 없어요. 토론과 투표로 마피아를 찾아내세요.'},
+};
+const DEFAULTS = {discuss:180, defense:true, reveal:false, selfHeal:true};
+const PREFIX = 'spacemafia-kr-v1-';
+const PEER_OPTS = {debug:1};
+const MAX_PLAYERS = 18;
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const fmtDur = s => { const m = Math.floor(s / 60), r = s % 60; return m ? `${m}분${r ? ` ${r}초` : ''}` : `${r}초`; };
+const mmss = ms => { const s = Math.ceil(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+const randToken = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+const recommend = n => ({mafia: n <= 5 ? 1 : n <= 8 ? 2 : n <= 12 ? 3 : 4, police: n >= 4 ? 1 : 0, doctor: n >= 5 ? 1 : 0});
+const LS = {
+  get(k) { try { const t = localStorage.getItem(k); return t ? JSON.parse(t) : null; } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+
+function crew(color, cls = '') {
+  const c = CMAP[color] || COLORS[0];
+  return `<svg class="crew ${cls}" viewBox="0 0 108 122" style="--b:${c.body};--s:${c.shade}" aria-hidden="true"><use href="#crew" width="108" height="122"/></svg>`;
+}
+function hostSvg() {
+  const c = CMAP.banana;
+  return `<svg viewBox="0 -16 108 138" style="--b:${c.body};--s:${c.shade}" aria-hidden="true"><use href="#crew" width="108" height="122"/>
+    <rect x="44" y="-14" width="34" height="20" rx="3" fill="#1A1B26" stroke="#0B0B12" stroke-width="4"/>
+    <rect x="44" y="-1" width="34" height="5" fill="#F7C948"/>
+    <rect x="34" y="4" width="54" height="7" rx="3.5" fill="#1A1B26" stroke="#0B0B12" stroke-width="4"/></svg>`;
+}
+
+/* =========================================================
+   소리 / 화면 유지
+   ========================================================= */
+function speak(t) {
+  if (!t) return;
+  try {
+    const ss = window.speechSynthesis; if (!ss) return;
+    ss.cancel();
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = 'ko-KR'; u.rate = 1.05;
+    const v = ss.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
+    if (v) u.voice = v;
+    ss.speak(u);
+  } catch (e) {}
+}
+let actx = null;
+function beep() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    [0, .28].forEach(off => {
+      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + off;
+      o.type = 'square'; o.frequency.value = 880;
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.18, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .24);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + .26);
+    });
+  } catch (e) {}
+}
+let wake = null;
+function keepAwake() {
+  try { if (!wake && navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wake = w; w.addEventListener('release', () => wake = null); }).catch(() => {}); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+
+/* =========================================================
+   상태
+   H  : 방장 폰에만 있는 전체 게임 상태 (진짜 정답)
+   V  : 이 폰에 보이는 화면 정보 (방장이 사람마다 따로 만들어 보냄)
+   L  : 이 폰의 로컬 UI 상태
+   ========================================================= */
+let H = null;
+let V = null;
+const L = {
+  screen:'home', err:'', status:'', lost:false, sheet:null, quitArm:false,
+  sel:null, flip:false, key:'', spoken:null, unlocked:false,
+  name: LS.get('sm.name') || '', code: (location.hash || '').replace(/\D/g, '').slice(0, 4),
+  info:'', scanMsg:'', scanErr:'',
+};
+if (/^\d{4}$/.test(L.code)) L.info = `방 ${L.code}에 초대받았어요. 이름을 적고 참가를 눌러주세요.`;
+const net = {mode:null, peer:null, conns:new Map(), conn:null, code:null, token:null, name:null, joined:false, retry:null, awaiting:0, opened:false};
+
+const ttsOn = () => { const p = LS.get('sm.tts'); return p == null ? net.mode === 'host' : !!p; };
+const VP = id => V && V.players.find(p => p.id === id);
+const vAlive = () => V.players.filter(p => p.alive);
+const vnm = id => { const p = VP(id); return p ? esc(p.name) : '?'; };
+
+/* =========================================================
+   방장: 게임 엔진
+   ========================================================= */
+const HP = id => H.players.find(p => p.id === id);
+const hAlive = () => H.players.filter(p => p.alive);
+function setLine(t) { H.line = t; H.lineSeq++; }
+
+function hSetupError() {
+  const n = H.players.length, rc = H.roleCounts;
+  if (n < 4) return `4명 이상 모여야 시작할 수 있어요. (지금 ${n}명)`;
+  if (rc.mafia * 2 >= n) return '마피아는 전체 인원의 절반보다 적어야 해요.';
+  if (rc.mafia + rc.police + rc.doctor > n) return '역할 수가 인원보다 많아요.';
+  return '';
+}
+function hCheckWin() {
+  const a = hAlive(), m = a.filter(p => p.role === 'mafia').length;
+  if (m === 0) H.winner = 'town'; else if (m >= a.length - m) H.winner = 'mafia';
+  return H.winner;
+}
+function hStartTimer(sec) { H.timer = {end:Date.now() + sec * 1000, total:sec * 1000, left:null, done:false}; }
+function hTimeLeft() { const t = H.timer; if (!t) return 0; return t.left != null ? t.left : Math.max(0, t.end - Date.now()); }
+
+function hStart() {
+  const n = H.players.length, rc = H.roleCounts;
+  const roles = [...Array(rc.mafia).fill('mafia'), ...Array(rc.police).fill('police'), ...Array(rc.doctor).fill('doctor')];
+  while (roles.length < n) roles.push('citizen');
+  shuffle(roles);
+  H.players.forEach((p, i) => { p.role = roles[i]; p.alive = true; p.known = {}; p.ready = false; });
+  Object.assign(H, {phase:'roles', day:1, log:[], sus:{}, winner:null, night:null, vote:null, timer:null, dawnInfo:null, lastInv:{}});
+  setLine(`게임을 시작합니다. 마피아는 ${rc.mafia}명이에요. 각자 폰에서 역할을 확인하세요.`);
+}
+function hStartNight() {
+  H.night = {mafia:{}, draft:{}, heal:{}, inv:{}, sus:{}, picks:{}, done:{}};
+  H.phase = 'night'; H.timer = null;
+  setLine(`${H.day}번째 밤이 되었습니다. 각자 폰으로 조용히 행동하세요. 시민도 한 명을 골라주세요.`);
+}
+function hResolveNight() {
+  const N = H.night, cnt = {};
+  Object.values(N.mafia).forEach(t => cnt[t] = (cnt[t] || 0) + 1);
+  const max = Math.max(0, ...Object.values(cnt));
+  const tops = Object.keys(cnt).filter(k => cnt[k] === max);
+  const target = tops.length ? tops[Math.floor(Math.random() * tops.length)] : null;
+  const heals = Object.values(N.heal);
+  let victim = null, saved = false;
+  if (target) { if (heals.includes(target)) saved = true; else { victim = target; HP(target).alive = false; } }
+  Object.values(N.sus).forEach(t => H.sus[t] = (H.sus[t] || 0) + 1);
+  H.log.push({t:'night', day:H.day, target, heals, victim, saved, inv:Object.entries(N.inv)});
+  H.lastInv = {...N.inv};
+  H.dawnInfo = {victim, saved};
+  H.phase = 'dawn';
+  hCheckWin();
+  const v = victim && HP(victim);
+  let line = v ? `아침이 밝았습니다. 지난밤 ${v.name}님이 마피아에게 당했습니다.` : '아침이 밝았습니다. 지난밤에는 아무도 죽지 않았습니다.';
+  if (v && H.settings.reveal) line += ` ${v.name}님은 ${ROLES[v.role].was}.`;
+  setLine(line);
+}
+function hTally() {
+  const vt = H.vote; vt.counts = {}; vt.skip = 0;
+  Object.values(vt.ballots).forEach(t => { if (t === 'skip') vt.skip++; else vt.counts[t] = (vt.counts[t] || 0) + 1; });
+  const max = Math.max(0, ...Object.values(vt.counts));
+  const tops = Object.keys(vt.counts).filter(k => vt.counts[k] === max);
+  vt.max = max;
+  vt.accused = max > 0 && tops.length === 1 ? tops[0] : null;
+  H.log.push({t:'vote', day:H.day, accused:vt.accused, max});
+  H.phase = 'voteResult';
+  setLine(vt.accused ? `${HP(vt.accused).name}님이 ${max}표로 가장 많은 표를 받았습니다.` : max ? '동점이라 오늘은 아무도 처형되지 않습니다.' : '표가 없어 오늘은 아무도 처형되지 않습니다.');
+}
+function hConfirmTally() {
+  const vt = H.vote, c = Object.values(vt.conf);
+  vt.yes = c.filter(x => x === 'yes').length; vt.no = c.filter(x => x === 'no').length;
+  const name = HP(vt.accused).name;
+  H.phase = 'confirmResult';
+  if (vt.yes > vt.no) setLine(`찬성 ${vt.yes}표, 반대 ${vt.no}표. ${name}님의 처형이 결정됐습니다.`);
+  else { H.log.push({t:'spare', day:H.day, id:vt.accused, yes:vt.yes, no:vt.no}); setLine(`찬성 ${vt.yes}표, 반대 ${vt.no}표. ${name}님은 살아남았습니다.`); }
+}
+function hExecute() {
+  const p = HP(H.vote.accused);
+  p.alive = false;
+  H.log.push({t:'exec', day:H.day, id:p.id});
+  H.phase = 'execute'; H.timer = null;
+  hCheckWin();
+  setLine(H.settings.reveal ? `${p.name}님이 처형되었습니다. ${p.name}님은 ${ROLES[p.role].was}.` : `${p.name}님이 처형되었습니다.`);
+}
+function hNextNight() { H.day++; hStartNight(); }
+function hEnd() { H.phase = 'end'; setLine(H.winner === 'mafia' ? '마피아가 우주선을 장악했습니다. 마피아 팀 승리!' : '마피아를 모두 찾아냈습니다. 시민 팀 승리!'); }
+function hToLobby() {
+  H.players.forEach(p => { p.role = null; p.alive = true; p.known = {}; p.ready = false; });
+  Object.assign(H, {phase:'lobby', day:1, night:null, vote:null, timer:null, dawnInfo:null, winner:null});
+  setLine('대기실로 돌아왔어요. 준비되면 다시 시작하세요.');
+}
+function hAdv() {
+  const ph = H.phase;
+  if (ph === 'dawn') {
+    if (H.winner) return hEnd();
+    hStartTimer(H.settings.discuss); H.phase = 'discuss';
+    setLine(`${H.day}일차 낮입니다. ${fmtDur(H.settings.discuss)} 동안 자유롭게 토론하세요.`);
+  } else if (ph === 'discuss') {
+    H.vote = {ballots:{}, conf:{}, counts:{}, skip:0, accused:null, yes:0, no:0, max:0};
+    H.timer = null; H.phase = 'vote';
+    setLine('긴급 회의! 각자 폰으로 마피아라고 생각하는 사람에게 투표하세요.');
+  } else if (ph === 'voteResult') {
+    if (!H.vote.accused) return hNextNight();
+    if (H.settings.defense) { hStartTimer(30); H.phase = 'defense'; setLine(`${HP(H.vote.accused).name}님, 30초 동안 최후 변론을 해주세요.`); }
+    else hExecute();
+  } else if (ph === 'defense') {
+    H.timer = null; H.phase = 'confirm';
+    setLine(`${HP(H.vote.accused).name}님을 처형할지 각자 폰으로 찬반 투표를 해주세요.`);
+  } else if (ph === 'confirmResult') {
+    if (H.vote.yes > H.vote.no) hExecute(); else hNextNight();
+  } else if (ph === 'execute') {
+    if (H.winner) hEnd(); else hNextNight();
+  } else if (ph === 'end') hToLobby();
+}
+function validNightTarget(me, t) {
+  const tp = HP(t); if (!tp || !tp.alive) return false;
+  if (me.role === 'mafia') return tp.role !== 'mafia';
+  if (me.role === 'doctor') return H.settings.selfHeal || t !== me.id;
+  return t !== me.id;
+}
+
+/* 모든 요청은 여기로 모인다 (방장 자신의 요청도) */
+function hAct(pid, m) {
+  const me = HP(pid); if (!me || !m) return;
+  const ph = H.phase, isHost = pid === H.hostId;
+  switch (m.a) {
+    case 'color':
+      if (ph !== 'lobby' || !CMAP[m.c] || H.players.some(p => p.color === m.c && p.id !== pid)) return;
+      me.color = m.c; break;
+    case 'ready':
+      if (ph !== 'roles' || me.ready) return;
+      me.ready = true;
+      if (H.players.every(p => p.ready)) hStartNight();
+      break;
+    case 'draft':
+      if (ph !== 'night' || !me.alive || me.role !== 'mafia' || H.night.done[pid]) return;
+      if (m.target && !validNightTarget(me, m.target)) return;
+      H.night.draft[pid] = m.target || null; break;
+    case 'night': {
+      const N = H.night, t = m.target;
+      if (ph !== 'night' || !me.alive || N.done[pid] || !validNightTarget(me, t)) return;
+      N.picks[pid] = t; N.done[pid] = true;
+      if (me.role === 'mafia') N.mafia[pid] = t;
+      else if (me.role === 'police') { N.inv[pid] = t; me.known[t] = HP(t).role === 'mafia' ? 'mafia' : 'town'; }
+      else if (me.role === 'doctor') N.heal[pid] = t;
+      else N.sus[pid] = t;
+      if (hAlive().every(p => N.done[p.id])) hResolveNight();
+      break;
+    }
+    case 'vote': {
+      const vt = H.vote, t = m.target;
+      if (ph !== 'vote' || !me.alive || vt.ballots[pid]) return;
+      if (t !== 'skip') { const tp = HP(t); if (!tp || !tp.alive || t === pid) return; }
+      vt.ballots[pid] = t;
+      if (hAlive().every(p => vt.ballots[p.id])) hTally();
+      break;
+    }
+    case 'confirm': {
+      const vt = H.vote;
+      if (ph !== 'confirm' || !me.alive || pid === vt.accused || vt.conf[pid] || (m.v !== 'yes' && m.v !== 'no')) return;
+      vt.conf[pid] = m.v;
+      if (hAlive().filter(p => p.id !== vt.accused).every(p => vt.conf[p.id])) hConfirmTally();
+      break;
+    }
+    default: {
+      if (!isHost) return;
+      switch (m.a) {
+        case 'hs': if (ph !== 'lobby' || typeof DEFAULTS[m.k] !== 'boolean') return; H.settings[m.k] = !H.settings[m.k]; break;
+        case 'disc': if (ph !== 'lobby') return; H.settings.discuss = Math.min(600, Math.max(60, H.settings.discuss + Number(m.d))); break;
+        case 'rc': {
+          if (ph !== 'lobby') return;
+          const lim = {mafia:[1, 9], police:[0, 2], doctor:[0, 2]}[m.r]; if (!lim) return;
+          H.roleCounts[m.r] = Math.min(lim[1], Math.max(lim[0], H.roleCounts[m.r] + Number(m.d))); break;
+        }
+        case 'recommend': if (ph !== 'lobby') return; H.roleCounts = recommend(H.players.length); break;
+        case 'kick': {
+          if (ph !== 'lobby' || m.id === H.hostId || !HP(m.id)) return;
+          const c = net.conns.get(m.id);
+          if (c) { try { c.send({t:'kicked'}); } catch (e) {} setTimeout(() => { try { c.close(); } catch (e) {} }, 400); net.conns.delete(m.id); }
+          const name = HP(m.id).name;
+          H.players = H.players.filter(p => p.id !== m.id);
+          H.roleCounts = recommend(H.players.length);
+          setLine(`${name}님을 내보냈어요.`);
+          break;
+        }
+        case 'start': if (ph !== 'lobby' || hSetupError()) return; hStart(); break;
+        case 'adv': hAdv(); break;
+        case 'pause': {
+          const t = H.timer; if (!t) return;
+          if (t.left == null) t.left = hTimeLeft(); else { t.end = Date.now() + t.left; t.left = null; }
+          break;
+        }
+        case 'add30': {
+          const t = H.timer; if (!t) return;
+          if (t.left != null) t.left += 30000; else t.end = Math.max(t.end, Date.now()) + 30000;
+          t.total = Math.max(t.total, hTimeLeft()); t.done = false; break;
+        }
+        case 'force':
+          if (ph === 'roles') hStartNight();
+          else if (ph === 'night') hResolveNight();
+          else if (ph === 'vote') hTally();
+          else if (ph === 'confirm') hConfirmTally();
+          else return;
+          break;
+        case 'toLobby': if (ph === 'lobby') return; hToLobby(); break;
+        default: return;
+      }
+    }
+  }
+  hostChanged();
+}
+
+/* 사람마다 볼 수 있는 정보만 골라 담는다 */
+function buildView(pid) {
+  const me = HP(pid), ph = H.phase, isMafia = me.role === 'mafia';
+  const showRole = p => ph === 'end' || p.id === pid || (H.settings.reveal && !p.alive) || (isMafia && p.role === 'mafia');
+  const v = {
+    code:H.code, phase:ph, day:H.day, line:H.line, lineSeq:H.lineSeq, isHost:pid === H.hostId,
+    settings:{...H.settings}, roleCounts:{...H.roleCounts},
+    players:H.players.map(p => ({id:p.id, name:p.name, color:p.color, alive:p.alive, host:p.id === H.hostId,
+      online:p.id === H.hostId || p.online, role:showRole(p) ? p.role : null})),
+    me:{id:pid, role:me.role, alive:me.alive, ready:me.ready},
+    gameOver:!!H.winner,
+  };
+  if (me.role === 'police') v.known = {...me.known};
+  if (ph === 'roles') v.progress = {done:H.players.filter(p => p.ready).length, total:H.players.length, pending:H.players.filter(p => !p.ready).map(p => p.id)};
+  if (ph === 'night') {
+    const N = H.night, al = hAlive();
+    v.night = {done:!!N.done[pid], pick:N.picks[pid] || null};
+    v.progress = {done:al.filter(p => N.done[p.id]).length, total:al.length};
+    if (isMafia) v.night.mates = al.filter(p => p.role === 'mafia' && p.id !== pid).map(p => ({id:p.id, draft:N.draft[p.id] || null, pick:N.mafia[p.id] || null}));
+    if (me.role === 'police' && N.inv[pid]) v.night.result = {target:N.inv[pid], mafia:HP(N.inv[pid]).role === 'mafia'};
+  }
+  if (ph === 'dawn') {
+    v.dawn = {...H.dawnInfo};
+    if (me.role === 'police' && H.lastInv[pid]) { const t = H.lastInv[pid]; v.myInv = {target:t, mafia:HP(t).role === 'mafia'}; }
+  }
+  const vt = H.vote;
+  if (ph === 'vote') {
+    const al = hAlive();
+    v.vote = {mine:vt.ballots[pid] || null};
+    v.progress = {done:al.filter(p => vt.ballots[p.id]).length, total:al.length, pending:al.filter(p => !vt.ballots[p.id]).map(p => p.id)};
+  }
+  if (ph === 'voteResult') v.vote = {counts:{...vt.counts}, skip:vt.skip, accused:vt.accused, max:vt.max};
+  if (ph === 'defense' || ph === 'execute') v.vote = {accused:vt.accused};
+  if (ph === 'confirm') {
+    const el = hAlive().filter(p => p.id !== vt.accused);
+    v.vote = {accused:vt.accused, mine:vt.conf[pid] || null};
+    v.progress = {done:el.filter(p => vt.conf[p.id]).length, total:el.length, pending:el.filter(p => !vt.conf[p.id]).map(p => p.id)};
+  }
+  if (ph === 'confirmResult') v.vote = {accused:vt.accused, yes:vt.yes, no:vt.no};
+  if ((ph === 'discuss' || ph === 'defense') && H.timer) v.timer = {remaining:hTimeLeft(), total:H.timer.total, paused:H.timer.left != null, done:H.timer.done};
+  if (ph === 'end') { v.winner = H.winner; v.log = H.log; v.sus = H.sus; }
+  return v;
+}
+
+function hostChanged() {
+  H.savedAt = Date.now();
+  LS.set('sm.host', H);
+  for (const [pid, c] of net.conns) {
+    if (c.open && HP(pid)) { try { c.send({t:'state', v:buildView(pid)}); } catch (e) {} }
+  }
+  setView(buildView(H.hostId));
+}
+
+/* ---------- 방장 네트워크 ---------- */
+function uniqueName(name) {
+  let n = name, i = 2;
+  while (H.players.some(p => p.name === n)) n = `${name.slice(0, 7)}${i++}`;
+  return n;
+}
+function createRoom(resume) {
+  if (typeof Peer === 'undefined') { L.err = '연결 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; return render(); }
+  if (resume) {
+    H = LS.get('sm.host');
+    if (!H) return;
+    H.players.forEach(p => { if (p.id !== H.hostId) p.online = false; });
+  } else {
+    const name = L.name.trim();
+    if (!name) { L.err = '이름을 먼저 적어주세요.'; return render(); }
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    H = {code, hostId:'p1', nextId:2, phase:'lobby', day:1,
+      players:[{id:'p1', token:randToken(), name, color:'red', role:null, alive:true, known:{}, online:true, lastSeen:Date.now(), ready:false}],
+      settings:{...DEFAULTS}, roleCounts:recommend(4), line:`방을 만들었어요. 친구들에게 방 코드 ${code}를 알려주세요.`, lineSeq:1,
+      log:[], sus:{}, lastInv:{}, night:null, vote:null, timer:null, dawnInfo:null, winner:null};
+  }
+  net.mode = 'host'; net.opened = false; L.err = ''; L.info = '';
+  L.screen = 'connecting'; L.status = resume ? `방 ${H.code}을(를) 다시 여는 중…` : '방을 여는 중…';
+  render();
+  openHostPeer(0, resume);
+}
+function openHostPeer(attempt, resume) {
+  cleanupPeer();
+  const peer = new Peer(PREFIX + H.code, PEER_OPTS);
+  net.peer = peer;
+  peer.on('open', () => {
+    if (net.peer !== peer) return;
+    net.opened = true; L.screen = 'room'; L.lost = false;
+    hostChanged();
+  });
+  peer.on('connection', conn => setupHostConn(conn));
+  peer.on('disconnected', () => { if (net.peer === peer && !peer.destroyed) setTimeout(() => { try { peer.reconnect(); } catch (e) {} }, 1500); });
+  peer.on('error', e => {
+    if (net.peer !== peer) return;
+    if (e.type === 'unavailable-id') {
+      if (!resume && H.phase === 'lobby' && H.players.length === 1 && attempt < 5) {
+        H.code = String(Math.floor(1000 + Math.random() * 9000));
+        H.line = `방을 만들었어요. 친구들에게 방 코드 ${H.code}를 알려주세요.`;
+        return openHostPeer(attempt + 1, resume);
+      }
+      if (attempt < 20) { L.status = '이전 연결을 정리하는 중… 잠시만 기다려주세요.'; render(); setTimeout(() => { if (net.mode === 'host') openHostPeer(attempt + 1, resume); }, 3000); return; }
+      return fail('방 코드를 다시 쓸 수 없어요. 새 방을 만들어 주세요.');
+    }
+    if (e.type === 'browser-incompatible') return fail('이 브라우저는 온라인 모드를 지원하지 않아요. 크롬이나 사파리 최신 버전을 써주세요.');
+    if (!net.opened) return fail('연결 서버에 닿지 못했어요. 인터넷 연결을 확인해 주세요.');
+  });
+}
+function setupHostConn(conn) {
+  conn.on('data', m => onHostData(conn, m));
+  conn.on('close', () => {
+    const pid = conn.pid;
+    if (!pid || net.conns.get(pid) !== conn) return;
+    net.conns.delete(pid);
+    const p = HP(pid); if (p) { p.online = false; hostChanged(); }
+  });
+  conn.on('error', () => {});
+}
+function onHostData(conn, m) {
+  if (!m || typeof m !== 'object' || net.mode !== 'host') return;
+  if (m.t === 'hello') {
+    let p = m.token ? H.players.find(x => x.token === m.token) : null;
+    if (p) {
+      const old = net.conns.get(p.id);
+      if (old && old !== conn) try { old.close(); } catch (e) {}
+    } else {
+      const reject = msg => { try { conn.send({t:'reject', msg}); } catch (e) {} setTimeout(() => { try { conn.close(); } catch (e) {} }, 500); };
+      if (H.phase !== 'lobby') return reject('이미 게임이 진행 중인 방이에요. 끝날 때까지 기다려주세요.');
+      if (H.players.length >= MAX_PLAYERS) return reject(`방이 가득 찼어요. (최대 ${MAX_PLAYERS}명)`);
+      const name = uniqueName(String(m.name || '').trim().slice(0, 8) || '플레이어');
+      const color = (COLORS.find(c => !H.players.some(x => x.color === c.id)) || COLORS[0]).id;
+      p = {id:'p' + (H.nextId++), token:String(m.token || randToken()), name, color, role:null, alive:true, known:{}, online:true, lastSeen:Date.now(), ready:false};
+      H.players.push(p);
+      H.roleCounts = recommend(H.players.length);
+      setLine(`${name}님이 들어왔어요. 지금 ${H.players.length}명이에요.`);
+    }
+    conn.pid = p.id; net.conns.set(p.id, conn);
+    p.online = true; p.lastSeen = Date.now();
+    try { conn.send({t:'welcome', id:p.id}); } catch (e) {}
+    hostChanged();
+    return;
+  }
+  const p = conn.pid && HP(conn.pid);
+  if (!p) return;
+  p.lastSeen = Date.now();
+  if (m.t === 'ping') {
+    try { conn.send({t:'pong'}); } catch (e) {}
+    if (!p.online) { p.online = true; hostChanged(); }
+    return;
+  }
+  if (!p.online) p.online = true;
+  if (m.t === 'act') hAct(p.id, m);
+}
+function closeRoom() {
+  for (const c of net.conns.values()) { try { c.send({t:'closed'}); } catch (e) {} }
+  LS.del('sm.host');
+  setTimeout(() => leaveToHome(''), 300);
+}
+
+/* ---------- 참가자 네트워크 ---------- */
+function joinRoom(code, token, name) {
+  if (typeof Peer === 'undefined') { L.err = '연결 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; return render(); }
+  Object.assign(net, {mode:'client', code, token, name, joined:false});
+  LS.set('sm.client', {code, token, name, at:Date.now()});
+  L.err = ''; L.info = ''; L.lost = false; L.screen = 'connecting'; L.status = `방 ${code}에 연결하는 중…`;
+  V = null; L.spoken = null;
+  render();
+  startClientPeer();
+}
+function startClientPeer() {
+  cleanupPeer();
+  const peer = new Peer(PEER_OPTS);
+  net.peer = peer;
+  peer.on('open', () => { if (net.peer === peer) connectToHost(); });
+  peer.on('error', e => {
+    if (net.peer !== peer) return;
+    if (e.type === 'peer-unavailable' && !net.joined) return fail(`방 ${net.code}을(를) 찾을 수 없어요. 코드를 다시 확인해 주세요.`);
+    if (e.type === 'browser-incompatible') return fail('이 브라우저는 온라인 모드를 지원하지 않아요.');
+    clientLost();
+  });
+  peer.on('disconnected', () => { if (net.peer === peer && !net.conn?.open) clientLost(); });
+}
+function connectToHost() {
+  const conn = net.peer.connect(PREFIX + net.code, {reliable:true, serialization:'json'});
+  net.conn = conn;
+  const to = setTimeout(() => {
+    if (net.conn !== conn || conn.open) return;
+    if (!net.joined) fail('방에 연결하지 못했어요. 방 코드와 인터넷 연결을 확인해 주세요.'); else clientLost();
+  }, 15000);
+  conn.on('open', () => { clearTimeout(to); net.awaiting = 0; conn.send({t:'hello', token:net.token, name:net.name}); });
+  conn.on('data', m => { if (net.conn !== conn) return; net.awaiting = 0; onClientData(m); });
+  conn.on('close', () => { if (net.conn === conn) clientLost(); });
+  conn.on('error', () => { if (net.conn === conn) clientLost(); });
+}
+function onClientData(m) {
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'welcome') { net.joined = true; }
+  else if (m.t === 'state') { net.joined = true; L.lost = false; L.screen = 'room'; setView(m.v); }
+  else if (m.t === 'reject') { LS.del('sm.client'); fail(m.msg); }
+  else if (m.t === 'kicked') { LS.del('sm.client'); fail('방장이 방에서 내보냈어요.'); }
+  else if (m.t === 'closed') { LS.del('sm.client'); fail('방장이 방을 닫았어요.'); }
+}
+function clientLost() {
+  if (net.mode !== 'client') return;
+  if (net.joined) { L.lost = true; render(); }
+  if (net.retry) return;
+  net.retry = setTimeout(() => { net.retry = null; if (net.mode === 'client') startClientPeer(); }, 2500);
+}
+
+/* ---------- 공통 ---------- */
+function cleanupPeer() {
+  if (net.conn) { try { net.conn.close(); } catch (e) {} net.conn = null; }
+  if (net.peer) { try { net.peer.destroy(); } catch (e) {} net.peer = null; }
+}
+function leaveToHome(err) {
+  if (net.retry) { clearTimeout(net.retry); net.retry = null; }
+  cleanupPeer();
+  for (const c of net.conns.values()) { try { c.close(); } catch (e) {} }
+  net.conns.clear();
+  net.mode = null; net.joined = false;
+  H = null; V = null;
+  Object.assign(L, {screen:'home', err:err || '', info:'', lost:false, sheet:null, quitArm:false, sel:null, flip:false, key:'', spoken:null});
+  render();
+}
+const fail = msg => leaveToHome(msg);
+
+function send(a, extra) {
+  const m = {t:'act', a, ...(extra || {})};
+  if (net.mode === 'host') hAct(H.hostId, m);
+  else if (net.conn && net.conn.open) { try { net.conn.send(m); } catch (e) { toast('보내지 못했어요. 다시 눌러주세요.'); } }
+  else toast('연결이 끊겨 있어요. 다시 연결되면 눌러주세요.');
+}
+
+function setView(v) {
+  const key = `${v.phase}|${v.day}|${v.vote && v.vote.accused || ''}`;
+  if (key !== L.key) { L.key = key; L.sel = null; L.flip = false; }
+  if (v.timer) v.timer.localEnd = Date.now() + v.timer.remaining;
+  if (V === null && net.mode === 'client') L.spoken = v.lineSeq;
+  V = v;
+  if (v.lineSeq !== L.spoken) { L.spoken = v.lineSeq; if (ttsOn()) speak(v.line); }
+  render();
+}
+
+let toastTimer = null;
+function toast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+
+/* =========================================================
+   화면
+   ========================================================= */
+const RULES = `<ol class="rules">
+  <li><b>방 만들기</b>한 사람이 방장이 되어 방을 만들고 4자리 코드를 알려줘요.</li>
+  <li><b>참가</b>나머지는 각자 폰에서 코드를 입력해 들어와요. 4–18명.</li>
+  <li><b>역할</b>역할은 각자 폰에만 보여요. 옆 사람에게 들키지 않게 조심하세요.</li>
+  <li><b>밤</b>모두 동시에 자기 폰으로 행동해요. 시민도 의심 가는 사람을 골라서, 폰을 만지는 모습만으로는 역할이 티 나지 않아요.</li>
+  <li><b>낮</b>모여서 토론하고 각자 폰으로 투표해요. 다음 단계로 넘기는 버튼은 방장 폰에만 있어요.</li>
+  <li><b>승리</b>마피아를 모두 찾아내면 시민 팀, 마피아 수가 나머지와 같아지면 마피아 팀이 이겨요.</li>
+</ol>`;
+
+const mini = p => `<div class="mini ${p.alive ? '' : 'dead'} ${p.online ? '' : 'off'}">${crew(p.color, p.alive ? '' : 'dead')}<span>${esc(p.name)}</span>${!p.alive && p.role ? `<small>${ROLES[p.role].name}</small>` : !p.online ? '<small>연결 끊김</small>' : ''}</div>`;
+const tile = (p, o = {}) => `<button class="tile ${o.sel ? 'sel' : ''}" data-act="sel" data-id="${p.id}" aria-pressed="${!!o.sel}">${o.tag ? `<span class="ttag ${o.tagCls || ''}">${o.tag}</span>` : ''}${crew(p.color)}<span class="nm">${esc(p.name)}</span></button>`;
+const hostFoot = (label, cls = '') => V.isHost ? `<button class="btn ${cls}" data-act="adv">${label}</button>` : `<p class="waitnote">방장이 다음 단계로 넘기면 함께 넘어가요.</p>`;
+function progressHtml() {
+  const pg = V.progress; if (!pg) return '';
+  return `<div class="progress"><div class="pbar"><i style="width:${pg.total ? pg.done / pg.total * 100 : 0}%"></i></div><p class="hint">${pg.done} / ${pg.total}명 완료</p></div>`;
+}
+function hostBox(forceLabel, showNames) {
+  if (!V.isHost || !V.progress) return '';
+  const pend = (V.progress.pending || []).map(VP).filter(Boolean);
+  return `<div class="hostbox"><span class="hb-t">방장 전용</span>
+    ${showNames && pend.length ? `<div class="names">${pend.map(p => `<span class="chip">${crew(p.color, 'xs')}${esc(p.name)}${p.online ? '' : ' · 끊김'}</span>`).join('')}</div>` : `<p class="hint">남은 사람 ${V.progress.total - V.progress.done}명</p>`}
+    <button class="btn ghost sm" data-act="force">${forceLabel}</button></div>`;
+}
+function ghost(title, text) {
+  const me = VP(V.me.id);
+  return {body:`<div class="center">${crew(me.color, 'lg dead bob')}<p class="eyebrow">관전 중</p><h2 class="big">${title}</h2><p class="lede">${text}</p>${progressHtml()}</div>`};
+}
+function timerBlock(small) {
+  const t = V.timer, left = vTimeLeft(), C = 2 * Math.PI * 90;
+  if (!t) return '';
+  return `<div class="timer ${small ? 'small' : ''} ${left <= 10000 ? 'low' : ''}" id="timer">
+      <svg viewBox="0 0 200 200"><circle class="track" cx="100" cy="100" r="90"/><circle class="prog" id="ring" cx="100" cy="100" r="90" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - left / t.total)}"/></svg>
+      <div class="tin"><div class="tnum" id="tnum">${mmss(left)}</div><div class="tsub">${t.paused ? '일시정지' : '남은 시간'}</div></div>
+    </div>
+    ${V.isHost ? `<div class="tctl"><button class="btn ghost" data-act="pause">${t.paused ? '다시 시작' : '일시정지'}</button><button class="btn ghost" data-act="add30">＋30초</button></div>` : ''}`;
+}
+function vTimeLeft() { const t = V && V.timer; if (!t) return 0; return t.paused ? t.remaining : Math.max(0, t.localEnd - Date.now()); }
+
+const PRE = {
+  home() {
+    const sh = LS.get('sm.host'), sc = LS.get('sm.client');
+    const hostOk = sh && sh.code && Date.now() - (sh.savedAt || 0) < 6 * 3600e3;
+    const cliOk = sc && sc.code && Date.now() - (sc.at || 0) < 6 * 3600e3;
+    return {
+      body: `<section class="hero">
+        <div class="crowd">${['red','cyan','yellow','purple','lime','coral'].map((c, i) => crew(c, 'bob d' + i)).join('')}</div>
+        <span class="tag">온라인 · 폰 여러 대</span>
+        <h1 class="title">우주선 <span>마피아</span></h1>
+        <p class="lede">각자 자기 폰으로 방 코드를 입력해 들어와요. 방장 폰이 사회자가 되어 게임을 진행해요.</p>
+      </section>
+      <div class="field"><label for="homeName">내 이름</label><input class="pname" id="homeName" maxlength="8" autocomplete="off" value="${esc(L.name)}" placeholder="예: 지민"></div>
+      <button class="btn" data-act="create">방 만들기</button>
+      <div class="or">또는 코드로 참가</div>
+      <div class="joinrow"><input class="pname codeinput" id="homeCode" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" value="${esc(L.code)}" placeholder="0000" aria-label="방 코드 4자리"><button class="btn" data-act="join">참가</button></div>
+      <button class="btn ghost" data-act="scan" style="margin-top:10px">QR 코드 스캔해서 참가</button>
+      ${L.info ? `<p class="info" style="margin-top:12px">${esc(L.info)}</p>` : ''}
+      ${L.err ? `<p class="err" style="margin-top:12px">${esc(L.err)}</p>` : ''}
+      ${hostOk || cliOk ? `<div class="stack">
+        ${hostOk ? `<button class="btn ghost" data-act="rejoinHost">방 ${esc(sh.code)} 다시 열기 (내가 방장)</button>` : ''}
+        ${cliOk ? `<button class="btn ghost" data-act="rejoinClient">방 ${esc(sc.code)}에 다시 참가</button>` : ''}</div>` : ''}
+      <details class="howto"><summary>게임 방법</summary>${RULES}</details>
+      <p class="hint" style="margin-top:14px">서버 없이 폰끼리 직접(P2P) 연결돼요. 처음 연결할 때만 인터넷이 필요해요. 폰 한 대로 돌려서 하려면 <a href="index.html">여기</a>를 누르세요.</p>`,
+    };
+  },
+  scan() {
+    if (L.scanErr) return {
+      body: `<div class="center"><div class="scanwrap off" aria-hidden="true"><div class="scanframe"></div></div><p class="err">${esc(L.scanErr)}</p></div>`,
+      foot: `<button class="btn ghost" data-act="scanCancel">돌아가기</button>`,
+    };
+    return {
+      body: `<p class="eyebrow" style="text-align:center;margin-bottom:10px">QR 코드로 참가</p>
+        <div class="scanwrap"><video id="scanVideo" playsinline muted autoplay></video><div class="scanframe"></div></div>
+        <p class="hint" id="scanMsg" style="text-align:center">${esc(L.scanMsg || '')}</p>
+        ${L.name.trim() ? `<p class="hint" style="text-align:center;margin-top:6px">읽으면 "${esc(L.name.trim())}" 이름으로 바로 참가해요.</p>` : ''}`,
+      foot: `<button class="btn ghost" data-act="scanCancel">취소</button>`,
+    };
+  },
+  connecting() {
+    return {
+      body: `<div class="center"><div class="crowd">${['blue','orange','pink'].map((c, i) => crew(c, 'bob d' + i)).join('')}</div>
+        <p class="eyebrow">연결 중</p><h2 class="big">잠시만요</h2><p class="lede">${esc(L.status)}</p></div>`,
+      foot: `<button class="btn ghost" data-act="cancel">취소</button>`,
+    };
+  },
+};
+
+const ROOM = {
+  lobby() {
+    const n = V.players.length, rc = V.roleCounts, st = V.settings, cit = n - rc.mafia - rc.police - rc.doctor;
+    const err = n < 4 ? `4명 이상 모여야 시작할 수 있어요. (지금 ${n}명)` : rc.mafia * 2 >= n ? '마피아는 전체 인원의 절반보다 적어야 해요.' : cit < 0 ? '역할 수가 인원보다 많아요.' : '';
+    const qr = qrSvg(inviteUrl(V.code));
+    const rows = V.players.map(p => `<li>${crew(p.color)}<span class="nmx"><b>${esc(p.name)}</b>${p.host ? '<span class="badge">방장</span>' : ''}${p.id === V.me.id ? '<span class="state">나</span>' : ''}</span>
+      <span class="rowr"><i class="online ${p.online ? '' : 'off'}" title="${p.online ? '접속 중' : '연결 끊김'}"></i>${V.isHost && !p.host ? `<button class="x" data-act="kick" data-id="${p.id}" aria-label="${esc(p.name)} 내보내기">✕</button>` : ''}</span></li>`).join('');
+    const stepRow = (r, label, val) => `<div class="srow"><span class="lbl"><i class="dot ${r}"></i>${label}</span><div class="step">
+      <button data-act="rc" data-r="${r}" data-d="-1" aria-label="${label} 줄이기">−</button><b class="num">${val}</b><button data-act="rc" data-r="${r}" data-d="1" aria-label="${label} 늘리기">＋</button></div></div>`;
+    const sw = (k, label, sub) => `<div class="srow"><span class="lbl"><span>${label}${sub ? `<small>${sub}</small>` : ''}</span></span><button class="switch" data-act="hs" data-k="${k}" aria-pressed="${!!st[k]}" aria-label="${label}"><i></i></button></div>`;
+    const cfg = V.isHost ? `
+      <section class="blk"><div class="blk-h"><h3>역할 구성</h3><button class="link" data-act="recommend">인원에 맞게 추천</button></div>
+        ${stepRow('mafia', '마피아', rc.mafia)}${stepRow('police', '경찰', rc.police)}${stepRow('doctor', '의사', rc.doctor)}
+        <div class="srow"><span class="lbl"><i class="dot citizen"></i>시민</span><b class="num">${Math.max(0, cit)}</b></div></section>
+      <section class="blk"><div class="blk-h"><h3>규칙</h3></div>
+        <div class="srow"><span class="lbl">토론 시간</span><div class="step"><button data-act="disc" data-d="-30" aria-label="토론 시간 줄이기">−</button><b class="num wide">${fmtDur(st.discuss)}</b><button data-act="disc" data-d="30" aria-label="토론 시간 늘리기">＋</button></div></div>
+        ${sw('defense', '최후 변론 · 찬반 투표', '끄면 최다 득표자를 바로 처형')}${sw('reveal', '죽으면 역할 공개')}${sw('selfHeal', '의사 자기 보호 허용')}</section>`
+      : `<section class="blk"><div class="blk-h"><h3>방장이 정한 규칙</h3></div><div class="panel summary">
+          <span class="chip"><i class="dot mafia"></i>마피아 ${rc.mafia}</span><span class="chip"><i class="dot police"></i>경찰 ${rc.police}</span>
+          <span class="chip"><i class="dot doctor"></i>의사 ${rc.doctor}</span><span class="chip"><i class="dot citizen"></i>시민 ${Math.max(0, cit)}</span>
+          <span class="chip">토론 ${fmtDur(st.discuss)}</span><span class="chip">최후 변론 ${st.defense ? '있음' : '없음'}</span>
+          <span class="chip">죽으면 역할 ${st.reveal ? '공개' : '비공개'}</span></div></section>`;
+    return {
+      body: `<div class="codebox"><div class="stripe"></div><div class="in"><p class="eyebrow">방 코드</p><div class="code">${esc(V.code)}</div>
+          ${qr ? `<button class="qrbox" data-act="qrBig" aria-label="QR 코드 크게 보기">${qr}</button>` : ''}
+          <p class="hint">${qr ? 'QR을 찍거나 코드를 입력하면 들어와요. QR을 누르면 크게 보여요.' : '다른 폰에서 이 코드를 입력하면 들어와요.'}</p>
+          ${qr && isLocalHost() ? '<p class="err" style="margin-top:6px">지금 주소(localhost)는 다른 폰에서 열 수 없어요. 코드를 입력해서 들어오게 해주세요.</p>' : ''}</div></div>
+        <section class="blk"><div class="blk-h"><h3>참가자</h3><span class="count">${n}명</span></div><ul class="plist2">${rows}</ul>
+          <button class="btn ghost sm" data-act="colorSheet">내 캐릭터 색 바꾸기</button></section>
+        ${cfg}`,
+      foot: V.isHost ? `${err ? `<p class="err">${esc(err)}</p>` : ''}<button class="btn" data-act="start" ${err ? 'disabled' : ''}>게임 시작</button>`
+        : `<p class="waitnote">방장이 게임을 시작하면 역할이 배정돼요.</p>`,
+    };
+  },
+
+  roles() {
+    const me = VP(V.me.id), r = V.me.role, R = ROLES[r];
+    const mates = V.players.filter(p => p.role === 'mafia' && p.id !== me.id);
+    const mateHtml = r !== 'mafia' ? '' : mates.length
+      ? `<div class="mates"><span>동료 마피아</span>${mates.map(m => `<i>${crew(m.color, 'xs')}${esc(m.name)}</i>`).join('')}</div>`
+      : `<div class="mates"><span>동료 없이 혼자예요</span></div>`;
+    return {
+      body: `<div class="wholine">${crew(me.color, 'sm')}<span>${esc(me.name)}님의 역할 카드</span></div>
+        <button class="rolecard ${L.flip ? 'show' : ''}" data-act="flip" data-role="${r}" aria-pressed="${L.flip}">
+          <span class="cover"><span class="fp">탭</span><b>눌러서 역할 보기</b><span class="csub">한 번 더 누르면 다시 가려져요</span></span>
+          <span class="reveal">${crew(me.color, 'lg')}<span class="rname">${R.name}</span><span class="rteam">${R.team === 'mafia' ? '마피아 팀' : '시민 팀'}</span><span class="rdesc">${R.desc}</span>${mateHtml}</span>
+        </button>
+        ${progressHtml()}${hostBox('기다리지 않고 밤 시작', true)}`,
+      foot: V.me.ready ? `<button class="btn" disabled>다른 사람을 기다리는 중</button>` : `<button class="btn" data-act="ready">확인했어요</button>`,
+    };
+  },
+
+  night() {
+    const me = V.me, r = me.role, N = V.night, st = V.settings;
+    if (!me.alive) return ghost('밤이에요', '유령은 조용히 지켜봐요. 아침이 올 때까지 기다려주세요.');
+    const head = `<div class="nighthead"><span class="chip">나의 역할 · ${ROLES[r].name}</span><span class="chip">${V.day}번째 밤</span></div>`;
+    const matesHtml = N.mates ? (N.mates.length
+      ? `<div class="note"><b>동료의 선택</b>${N.mates.map(m => { const p = VP(m.id); return `<span class="mate">${crew(p.color)}${esc(p.name)} → ${m.pick ? `${vnm(m.pick)} (확정)` : m.draft ? `${vnm(m.draft)} (고민 중)` : '아직 고르지 않았어요'}</span>`; }).join('')}</div>`
+      : `<div class="note">혼자 남은 마피아예요. 내 선택이 그대로 결정돼요.</div>`) : '';
+    if (N.done) {
+      const t = VP(N.pick);
+      let inner;
+      if (r === 'police' && N.result) inner = `${crew(t.color, 'md')}<p>${esc(t.name)}님은</p><div class="verdict ${N.result.mafia ? 'is-mafia' : 'not-mafia'}">${N.result.mafia ? '마피아입니다' : '마피아가 아닙니다'}</div>`;
+      else if (r === 'mafia') inner = `${crew(t.color, 'md')}<div class="verdict">${esc(t.name)}님을<br>지목했어요</div>`;
+      else if (r === 'doctor') inner = `${crew(t.color, 'md')}<div class="verdict">${esc(t.name)}님을<br>지키기로 했어요</div>`;
+      else inner = `${crew(t.color, 'md')}<div class="verdict">${esc(t.name)}님을<br>의심한다고 적어뒀어요</div>`;
+      return {body:`${head}<div class="result">${inner}</div>${matesHtml}<p class="hint" style="text-align:center">다른 사람들이 행동을 마치면 아침이 와요.</p>${progressHtml()}${hostBox('기다리지 않고 아침으로', false)}`};
+    }
+    let ask, hint = '', targets, tagOf = () => null;
+    const al = vAlive();
+    if (r === 'mafia') {
+      ask = '오늘 밤 제거할 사람을 고르세요';
+      targets = al.filter(p => p.role !== 'mafia');
+      if (N.mates && N.mates.length) hint = '동료와 선택이 갈리면 표가 많은 쪽, 같으면 무작위로 정해져요. 내가 고르는 중인 사람도 동료에게 실시간으로 보여요.';
+    } else if (r === 'police') {
+      ask = '조사할 사람을 고르세요';
+      targets = al.filter(p => p.id !== me.id);
+      tagOf = p => V.known && V.known[p.id] ? (V.known[p.id] === 'mafia' ? ['마피아', 'bad'] : ['시민 팀', '']) : null;
+    } else if (r === 'doctor') {
+      ask = '오늘 밤 지켜줄 사람을 고르세요';
+      targets = al.filter(p => st.selfHeal || p.id !== me.id);
+    } else {
+      ask = '마피아로 의심되는 사람을 고르세요';
+      targets = al.filter(p => p.id !== me.id);
+      hint = '이 선택은 게임 결과에 영향을 주지 않아요. 게임이 끝나면 통계로만 보여드려요.';
+    }
+    return {
+      body: `${head}<h2 class="ask">${ask}</h2>${matesHtml}
+        <div class="grid">${targets.map(p => { const t = tagOf(p); return tile(p, {sel:L.sel === p.id, tag:t && t[0], tagCls:t && t[1]}); }).join('')}</div>
+        ${hint ? `<p class="hint" style="margin-top:12px">${hint}</p>` : ''}${hostBox('기다리지 않고 아침으로', false)}`,
+      foot: `<button class="btn" data-act="nightSubmit" ${L.sel ? '' : 'disabled'}>선택 완료</button>`,
+    };
+  },
+
+  dawn() {
+    const d = V.dawn, v = d.victim && VP(d.victim);
+    const main = v
+      ? `<div class="victim">${crew(v.color, 'lg fallen')}</div><p class="eyebrow">지난밤의 희생자</p><h2 class="big">${esc(v.name)}</h2>
+         <p class="lede">마피아에게 당했어요.${v.role && V.settings.reveal ? ` ${esc(v.name)}님은 <b>${ROLES[v.role].was}</b>.` : ''}</p>`
+      : `<div class="sun"></div><p class="eyebrow">${V.day}일차 아침</p><h2 class="big">아무도<br>죽지 않았어요</h2><p class="lede">모두 무사히 아침을 맞았어요.</p>`;
+    const inv = V.myInv ? `<div class="panel" style="width:100%;text-align:left"><p class="eyebrow">나만 보이는 조사 결과</p><p>${vnm(V.myInv.target)}님은 <b class="${V.myInv.mafia ? 'is-mafia' : 'not-mafia'}">${V.myInv.mafia ? '마피아' : '마피아가 아님'}</b></p></div>` : '';
+    return {
+      body: `<div class="center">${main}${inv}<div class="roster" style="width:100%;margin-top:10px">${V.players.map(mini).join('')}</div></div>`,
+      foot: hostFoot(V.gameOver ? '결과 보기' : '토론 시작'),
+    };
+  },
+
+  discuss() {
+    return {
+      body: `<div class="chips" style="justify-content:center"><span class="chip">${V.day}일차 낮 · 토론</span></div>${timerBlock(false)}
+        <div class="sect">생존자 ${vAlive().length}명</div><div class="roster">${V.players.map(mini).join('')}</div>`,
+      foot: hostFoot('투표로 넘어가기', 'red'),
+    };
+  },
+
+  vote() {
+    const me = V.me, vt = V.vote;
+    if (!me.alive) return Object.assign(ghost('투표 중', '살아있는 사람들이 투표하고 있어요.'), {});
+    const banner = `<div class="emergency"><div class="stripe"></div><div class="in"><div class="ebtn" aria-hidden="true"></div><div class="etitle">긴급 회의</div><p class="hint">누가 누구를 찍었는지는 공개되지 않아요.</p></div></div>`;
+    if (vt.mine) {
+      const pick = vt.mine === 'skip' ? '기권' : `${vnm(vt.mine)}님`;
+      return {body:`${banner}<div class="result"><div class="verdict">${pick}에게<br>투표했어요</div></div>${progressHtml()}${hostBox('지금까지 받은 표로 집계', true)}`};
+    }
+    return {
+      body: `${banner}<h2 class="ask">누구를 처형할까요?</h2>
+        <div class="grid">${vAlive().filter(p => p.id !== me.id).map(p => tile(p, {sel:L.sel === p.id})).join('')}
+          <button class="tile skip ${L.sel === 'skip' ? 'sel' : ''}" data-act="sel" data-id="skip" aria-pressed="${L.sel === 'skip'}"><span class="qm">?</span><span class="nm">기권</span></button></div>
+        ${progressHtml()}${hostBox('지금까지 받은 표로 집계', true)}`,
+      foot: `<button class="btn" data-act="voteSubmit" ${L.sel ? '' : 'disabled'}>투표하기</button>`,
+    };
+  },
+
+  voteResult() {
+    const vt = V.vote, entries = Object.entries(vt.counts).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+    const max = entries.length ? entries[0][1] : 0;
+    const bars = entries.map(([id, n]) => `<div class="bar-row ${id === vt.accused ? 'top' : ''}">${crew(VP(id).color)}<div class="bar"><i style="width:${n / Math.max(1, max) * 100}%"></i><span>${vnm(id)}<b>${n}</b></span></div></div>`).join('');
+    const head = vt.accused
+      ? `${crew(VP(vt.accused).color, 'md')}<p class="eyebrow">최다 득표</p><h2 class="big">${vnm(vt.accused)}</h2>`
+      : `<p class="eyebrow">투표 결과</p><h2 class="big">${max ? '동점이에요' : '표가 없어요'}</h2><p class="lede">오늘은 아무도 처형되지 않아요.</p>`;
+    const label = !vt.accused ? '밤으로' : V.settings.defense ? '최후 변론' : '처형하기';
+    return {
+      body: `<div class="center auto">${head}</div><div class="bars">${bars || '<p class="hint" style="text-align:center">받은 표가 없어요.</p>'}</div>
+        ${vt.skip ? `<p class="hint" style="margin-top:10px">기권 ${vt.skip}표</p>` : ''}`,
+      foot: hostFoot(label, vt.accused && !V.settings.defense ? 'red' : ''),
+    };
+  },
+
+  defense() {
+    const p = VP(V.vote.accused);
+    return {
+      body: `<div class="chips" style="justify-content:center"><span class="chip">최후 변론</span></div>
+        <div class="center auto">${crew(p.color, 'md bob')}<h2 class="big">${esc(p.name)}</h2><p class="lede">${p.id === V.me.id ? '억울하다면 지금 말해주세요.' : `${esc(p.name)}님의 말을 들어보세요.`}</p></div>${timerBlock(true)}`,
+      foot: hostFoot('찬반 투표 시작', 'red'),
+    };
+  },
+
+  confirm() {
+    const me = V.me, vt = V.vote, a = VP(vt.accused);
+    if (!me.alive) return ghost('찬반 투표 중', '살아있는 사람들이 투표하고 있어요.');
+    if (me.id === vt.accused) return {body:`<div class="center">${crew(a.color, 'lg bob')}<p class="eyebrow">찬반 투표 중</p><h2 class="big">운명의 시간</h2><p class="lede">다른 사람들이 당신의 처형 여부를 정하고 있어요.</p>${progressHtml()}</div>`};
+    if (vt.mine) return {body:`<div class="center auto">${crew(a.color, 'md')}</div><div class="result"><div class="verdict">${vt.mine === 'yes' ? '찬성' : '반대'}에<br>투표했어요</div></div>${progressHtml()}${hostBox('지금까지 받은 표로 집계', true)}`};
+    return {
+      body: `<div class="center auto">${crew(a.color, 'md')}<h2 class="ask" style="margin:0">${esc(a.name)}님을 처형할까요?</h2></div>
+        <div class="choices">
+          <button class="choice yes" data-act="sel" data-id="yes" aria-pressed="${L.sel === 'yes'}"><b>찬성</b><span>처형해요</span></button>
+          <button class="choice no" data-act="sel" data-id="no" aria-pressed="${L.sel === 'no'}"><b>반대</b><span>살려둬요</span></button>
+        </div>${progressHtml()}${hostBox('지금까지 받은 표로 집계', true)}`,
+      foot: `<button class="btn" data-act="confirmSubmit" ${L.sel ? '' : 'disabled'}>투표하기</button>`,
+    };
+  },
+
+  confirmResult() {
+    const vt = V.vote, a = VP(vt.accused), max = Math.max(1, vt.yes, vt.no), kill = vt.yes > vt.no;
+    return {
+      body: `<div class="center auto">${crew(a.color, 'md')}<p class="eyebrow">찬반 투표 결과</p>
+        <h2 class="big">${kill ? '처형 결정' : '살아남았어요'}</h2>${kill ? '' : `<p class="lede">찬성이 반대보다 많지 않아 ${esc(a.name)}님은 살아남았어요.</p>`}</div>
+        <div class="bars">
+          <div class="bar-row ${kill ? 'top' : ''}"><span></span><div class="bar"><i style="width:${vt.yes / max * 100}%"></i><span>찬성<b>${vt.yes}</b></span></div></div>
+          <div class="bar-row"><span></span><div class="bar"><i style="width:${vt.no / max * 100}%;background:#2F8F5F"></i><span>반대<b>${vt.no}</b></span></div></div>
+        </div>`,
+      foot: hostFoot(kill ? '처형하기' : '밤으로', kill ? 'red' : ''),
+    };
+  },
+
+  execute() {
+    const p = VP(V.vote.accused);
+    return {
+      body: `<div class="eject">${crew(p.color)}</div>
+        <div class="center auto"><p class="eyebrow">${V.day}일차 처형</p><h2 class="big">${esc(p.name)}</h2>
+        <p class="lede">${p.role && V.settings.reveal ? `${esc(p.name)}님은 <b class="${p.role === 'mafia' ? 'is-mafia' : 'not-mafia'}">${ROLES[p.role].was}</b>.` : '우주선 밖으로 쫓겨났어요.'}</p></div>`,
+      foot: hostFoot(V.gameOver ? '결과 보기' : '밤으로'),
+    };
+  },
+
+  end() {
+    const w = V.winner, winners = V.players.filter(p => (ROLES[p.role].team === 'mafia') === (w === 'mafia'));
+    const order = ['mafia', 'police', 'doctor', 'citizen'];
+    const list = [...V.players].sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
+    const sus = Object.entries(V.sus || {}).sort((a, b) => b[1] - a[1])[0];
+    const myTeamWon = (ROLES[V.me.role].team === 'mafia') === (w === 'mafia');
+    return {
+      body: `<div class="winner ${w}"><div class="crowd">${winners.map((p, i) => crew(p.color, 'bob d' + (i % 6))).join('')}</div>
+          <p class="eyebrow" style="color:#fff9">게임 종료 · ${myTeamWon ? '우리 팀이 이겼어요' : '우리 팀이 졌어요'}</p><div class="wtitle">${w === 'mafia' ? '마피아 승리' : '시민 승리'}</div>
+          <p class="lede" style="color:#fffc">${w === 'mafia' ? '마피아가 우주선을 장악했어요.' : '마피아를 모두 찾아냈어요.'}</p></div>
+        <div class="sect">전체 역할</div>
+        <ul class="plist2">${list.map(p => `<li>${crew(p.color, p.alive ? '' : 'dead')}<span class="nmx"><b>${esc(p.name)}</b><span class="state">${p.alive ? '생존' : '사망'}</span></span><span class="pill ${p.role}">${ROLES[p.role].name}</span></li>`).join('')}</ul>
+        ${sus && VP(sus[0]) ? `<div class="sect">밤마다 시민들이 가장 많이 의심한 사람</div><div class="stat panel">${crew(VP(sus[0]).color)}<div><b>${vnm(sus[0])}</b> · ${sus[1]}번<br><span class="hint">실제로는 ${ROLES[VP(sus[0]).role].name}</span></div></div>` : ''}
+        <div class="sect">타임라인</div><ol class="timeline">${timeline()}</ol>`,
+      foot: hostFoot('대기실로 돌아가기'),
+    };
+  },
+};
+
+function timeline() {
+  const out = [], role = id => VP(id) ? VP(id).role : null;
+  for (const e of V.log || []) {
+    if (e.t === 'night') {
+      const parts = [];
+      if (e.target) parts.push(e.saved ? `마피아가 ${vnm(e.target)}님을 노렸지만 의사가 지켜냈어요.` : `마피아가 ${vnm(e.target)}님을 제거했어요.`);
+      else parts.push('마피아가 아무도 고르지 않았어요.');
+      e.inv.forEach(([a, b]) => parts.push(`경찰 ${vnm(a)}님이 ${vnm(b)}님을 조사했어요 (${role(b) === 'mafia' ? '마피아' : '시민 팀'}).`));
+      if (!e.saved) e.heals.forEach(h => parts.push(`의사는 ${vnm(h)}님을 지켰어요.`));
+      out.push(`<li class="n"><b>${e.day}번째 밤</b>${parts.join(' ')}</li>`);
+    } else if (e.t === 'vote') {
+      out.push(`<li><b>${e.day}일차 투표</b>${e.accused ? `${vnm(e.accused)}님이 ${e.max}표로 최다 득표했어요.` : e.max ? '동점이라 처형이 없었어요.' : '표가 없어 처형이 없었어요.'}</li>`);
+    } else if (e.t === 'spare') {
+      out.push(`<li><b>${e.day}일차 찬반</b>찬성 ${e.yes} · 반대 ${e.no}로 ${vnm(e.id)}님이 살아남았어요.</li>`);
+    } else if (e.t === 'exec') {
+      out.push(`<li><b>${e.day}일차 처형</b>${vnm(e.id)}님이 처형됐어요 (${ROLES[role(e.id)].name}).</li>`);
+    }
+  }
+  return out.join('') || '<li>기록이 없어요.</li>';
+}
+
+function sheetHtml() {
+  if (L.sheet === 'color' && V) {
+    const me = VP(V.me.id);
+    return `<div class="sheet-bg" data-act="closeSheet"><div class="sheet" data-act="noop" role="dialog" aria-label="캐릭터 색 고르기">
+      <h3>내 캐릭터 색</h3>
+      <div class="cgrid">${COLORS.map(c => { const owner = V.players.find(p => p.color === c.id); const taken = owner && owner.id !== me.id;
+        return `<button data-act="setColor" data-c="${c.id}" aria-pressed="${me.color === c.id}" ${taken ? 'disabled' : ''}>${crew(c.id)}<span>${taken ? esc(owner.name) : c.name}</span></button>`; }).join('')}</div>
+      <p class="hint">다른 사람이 쓰는 색은 고를 수 없어요.</p>
+      <button class="btn ghost" data-act="closeSheet">닫기</button></div></div>`;
+  }
+  if (L.sheet === 'qr' && V) {
+    return `<div class="sheet-bg" data-act="closeSheet"><div class="sheet qrbig" data-act="noop" role="dialog" aria-label="초대 QR 코드">
+      <h3>방 ${esc(V.code)} 초대 QR</h3>
+      <div class="qrbox">${qrSvg(inviteUrl(V.code))}</div>
+      <p class="hint" style="text-align:center">폰 기본 카메라나 앱의 "QR 코드 스캔해서 참가"로 찍으면 들어와요.</p>
+      <button class="btn" data-act="closeSheet">닫기</button></div></div>`;
+  }
+  if (L.sheet === 'menu') {
+    const inRoom = net.mode && L.screen !== 'home';
+    const quitLabel = net.mode === 'host' ? '방 닫기' : '방 나가기';
+    return `<div class="sheet-bg" data-act="closeSheet"><div class="sheet" data-act="noop" role="dialog" aria-label="메뉴">
+      <h3>메뉴</h3>
+      ${V ? `<div class="chips"><span class="chip">방 코드 ${esc(V.code)}</span><span class="chip">${net.mode === 'host' ? '내가 방장' : '참가자'}</span></div>` : ''}
+      <div class="srow"><span class="lbl"><span>이 폰에서 음성 안내<small>보통 방장 폰에서만 켜요</small></span></span><button class="switch" data-act="tts" aria-pressed="${ttsOn()}" aria-label="음성 안내"><i></i></button></div>
+      <details class="howto" style="margin:0"><summary>게임 방법</summary>${RULES}</details>
+      ${net.mode === 'host' && V && V.phase !== 'lobby' ? `<button class="btn ghost" data-act="toLobby">게임 중단하고 대기실로</button>` : ''}
+      ${inRoom ? `<button class="btn ghost" data-act="quit" style="${L.quitArm ? 'border-color:var(--danger);color:var(--danger)' : ''}">${L.quitArm ? `한 번 더 누르면 ${quitLabel}` : quitLabel}</button>` : ''}
+      <button class="btn" data-act="closeSheet">닫기</button></div></div>`;
+  }
+  return '';
+}
+
+const $app = document.getElementById('app');
+let lastKey = '';
+function render() {
+  const oldMain = document.getElementById('main');
+  const inRoom = L.screen === 'room' && V;
+  const scrKey = inRoom ? 'room:' + V.phase : L.screen;
+  const keep = lastKey === scrKey && oldMain ? oldMain.scrollTop : 0;
+  const view = inRoom ? (ROOM[V.phase] || ROOM.lobby)() : (PRE[L.screen === 'room' ? 'connecting' : L.screen] || PRE.home)();
+  const line = inRoom ? V.line : L.screen === 'connecting' ? L.status : '안녕하세요! 오늘 사회는 제가 맡을게요. 방을 만들거나 코드를 입력해 들어오세요.';
+  $app.innerHTML = `
+    <header class="host">
+      <button class="host-av" data-act="replay" aria-label="안내 다시 듣기">${hostSvg()}</button>
+      <div class="bubble" data-act="replay"><span class="who">사회자${inRoom ? `<em>방 ${esc(V.code)}</em>` : ''}</span><p id="line">${esc(line)}</p></div>
+      <button class="icon-btn" data-act="menu" aria-label="메뉴">☰</button>
+    </header>
+    <main id="main">${L.lost ? '<div class="lost">연결이 끊겼어요. 다시 연결하는 중…</div>' : ''}${view.body}</main>
+    ${view.foot ? `<footer>${view.foot}</footer>` : ''}
+    ${sheetHtml()}`;
+  const main = document.getElementById('main');
+  if (main) main.scrollTop = keep;
+  lastKey = scrKey;
+  if (L.screen === 'scan') attachScanVideo();
+}
+
+/* =========================================================
+   입력
+   ========================================================= */
+const UIACT = {
+  noop() {},
+  replay() { speak(V ? V.line : ''); },
+  menu() { L.sheet = 'menu'; L.quitArm = false; render(); },
+  closeSheet() { L.sheet = null; L.quitArm = false; render(); },
+  tts() { LS.set('sm.tts', !ttsOn()); if (!ttsOn()) try { speechSynthesis.cancel(); } catch (e) {} render(); },
+  quit() {
+    if (!L.quitArm) { L.quitArm = true; render(); return; }
+    if (net.mode === 'host') closeRoom(); else { LS.del('sm.client'); leaveToHome(''); }
+  },
+  toLobby() { L.sheet = null; send('toLobby'); },
+  cancel() { if (net.mode === 'host') LS.del('sm.host'); else LS.del('sm.client'); leaveToHome(''); },
+
+  create() { createRoom(false); },
+  rejoinHost() { createRoom(true); },
+  join() {
+    const name = L.name.trim(), code = L.code;
+    if (!name) { L.err = '이름을 먼저 적어주세요.'; return render(); }
+    if (!/^\d{4}$/.test(code)) { L.err = '방 코드 4자리 숫자를 입력해 주세요.'; return render(); }
+    joinRoom(code, randToken(), name);
+  },
+  rejoinClient() { const sc = LS.get('sm.client'); if (sc) joinRoom(sc.code, sc.token, sc.name); },
+
+  qrBig() { L.sheet = 'qr'; render(); },
+  scan() { startScan(); },
+  scanCancel() { stopScan(); L.screen = 'home'; L.scanErr = ''; render(); },
+  colorSheet() { L.sheet = 'color'; render(); },
+  setColor(d) { L.sheet = null; send('color', {c:d.c}); render(); },
+  kick(d) { send('kick', {id:d.id}); },
+  rc(d) { send('rc', {r:d.r, d:Number(d.d)}); },
+  recommend() { send('recommend'); },
+  disc(d) { send('disc', {d:Number(d.d)}); },
+  hs(d) { send('hs', {k:d.k}); },
+  start() { send('start'); },
+
+  flip() { L.flip = !L.flip; render(); },
+  ready() { L.flip = false; send('ready'); },
+  sel(d) {
+    L.sel = d.id; render();
+    if (V && V.phase === 'night' && V.me.role === 'mafia') send('draft', {target:d.id});
+  },
+  nightSubmit() { if (L.sel) send('night', {target:L.sel}); },
+  voteSubmit() { if (L.sel) send('vote', {target:L.sel}); },
+  confirmSubmit() { if (L.sel) send('confirm', {v:L.sel}); },
+  adv() { send('adv'); },
+  pause() { send('pause'); },
+  add30() { send('add30'); },
+  force() { send('force'); },
+};
+
+/* =========================================================
+   QR 코드: 초대 QR 만들기 + 카메라로 읽기
+   ========================================================= */
+const JSQR_URL = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+const inviteUrl = code => location.origin + location.pathname + '#' + code;
+const isLocalHost = () => ['localhost', '127.0.0.1', '[::1]', ''].includes(location.hostname);
+
+function qrSvg(text) {
+  if (typeof qrcode === 'undefined') return '';
+  try { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({cellSize:4, margin:0, scalable:true}); }
+  catch (e) { return ''; }
+}
+function loadScript(src) {
+  return new Promise((ok, no) => {
+    if (document.querySelector(`script[src="${src}"]`)) return ok();
+    const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no;
+    document.head.appendChild(s);
+  });
+}
+
+const scan = {stream:null, timer:null, detector:null, canvas:null, busy:false};
+async function startScan() {
+  Object.assign(L, {screen:'scan', scanMsg:'카메라를 준비하는 중…', scanErr:'', err:'', info:''});
+  render();
+  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    L.scanErr = '이 주소는 https가 아니라서 앱 안에서 카메라를 쓸 수 없어요. 폰 기본 카메라 앱으로 QR을 비추면 참가 화면이 바로 열려요.';
+    return render();
+  }
+  try {
+    scan.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false});
+  } catch (e) {
+    L.scanErr = e && e.name === 'NotAllowedError' ? '카메라 권한이 거부됐어요. 브라우저 설정에서 이 사이트의 카메라를 허용해 주세요.' : '카메라를 열지 못했어요. 다른 앱이 카메라를 쓰고 있는지 확인해 주세요.';
+    return render();
+  }
+  if (L.screen !== 'scan') return stopScan();
+  if ('BarcodeDetector' in window) {
+    try { const f = await BarcodeDetector.getSupportedFormats(); if (f.includes('qr_code')) scan.detector = new BarcodeDetector({formats:['qr_code']}); } catch (e) {}
+  }
+  if (!scan.detector) {
+    try { await loadScript(JSQR_URL); } catch (e) { stopScan(); L.scanErr = 'QR 인식 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; return render(); }
+  }
+  if (L.screen !== 'scan') return stopScan();
+  L.scanMsg = '방장 폰에 뜬 QR 코드를 네모 안에 비춰주세요.';
+  render();
+  scan.timer = setInterval(scanTick, 250);
+}
+function stopScan() {
+  clearInterval(scan.timer); scan.timer = null;
+  if (scan.stream) { scan.stream.getTracks().forEach(t => t.stop()); scan.stream = null; }
+  scan.detector = null;
+}
+function attachScanVideo() {
+  const v = document.getElementById('scanVideo');
+  if (v && scan.stream && v.srcObject !== scan.stream) { v.srcObject = scan.stream; v.play().catch(() => {}); }
+}
+async function scanTick() {
+  const v = document.getElementById('scanVideo');
+  if (!v || v.readyState < 2 || scan.busy) return;
+  scan.busy = true;
+  try {
+    let text = null;
+    if (scan.detector) {
+      const r = await scan.detector.detect(v);
+      if (r.length) text = r[0].rawValue;
+    } else if (window.jsQR && v.videoWidth) {
+      const k = Math.min(1, 640 / Math.max(v.videoWidth, v.videoHeight));
+      const w = Math.round(v.videoWidth * k), h = Math.round(v.videoHeight * k);
+      const c = scan.canvas || (scan.canvas = document.createElement('canvas'));
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d', {willReadFrequently:true});
+      ctx.drawImage(v, 0, 0, w, h);
+      const r = window.jsQR(ctx.getImageData(0, 0, w, h).data, w, h, {inversionAttempts:'dontInvert'});
+      if (r) text = r.data;
+    }
+    if (text && scan.timer) onScanned(text);
+  } catch (e) {} finally { scan.busy = false; }
+}
+function onScanned(text) {
+  const s = String(text);
+  const m = s.match(/#(\d{4})(?!\d)/) || s.match(/^\s*(\d{4})\s*$/);
+  if (!m) {
+    L.scanMsg = '마피아 방 QR이 아니에요. 방장 폰에 뜬 QR을 비춰주세요.';
+    const el = document.getElementById('scanMsg'); if (el) el.textContent = L.scanMsg;
+    return;
+  }
+  stopScan();
+  try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
+  L.code = m[1]; L.screen = 'home';
+  if (L.name.trim()) UIACT.join();
+  else { L.info = `방 ${m[1]} 코드를 읽었어요. 이름을 적고 참가를 눌러주세요.`; render(); document.getElementById('homeName')?.focus(); }
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  keepAwake();
+  if (!L.unlocked) { L.unlocked = true; try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (err) {} }
+  const f = UIACT[el.dataset.act];
+  if (f) f(el.dataset, el);
+});
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.id === 'homeName') { L.name = el.value; LS.set('sm.name', el.value); }
+  if (el.id === 'homeCode') { const v = el.value.replace(/\D/g, '').slice(0, 4); if (v !== el.value) el.value = v; L.code = v; }
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (e.target.id === 'homeCode') UIACT.join();
+  else if (e.target.id === 'homeName') e.target.blur();
+});
+
+/* =========================================================
+   주기 작업
+   ========================================================= */
+setInterval(() => {
+  // 방장: 타이머 종료
+  if (net.mode === 'host' && H && (H.phase === 'discuss' || H.phase === 'defense') && H.timer && !H.timer.done && hTimeLeft() <= 0) {
+    H.timer.done = true; beep();
+    setLine(H.phase === 'discuss' ? '토론 시간이 끝났습니다. 방장은 투표를 시작해 주세요.' : '변론 시간이 끝났습니다. 방장은 찬반 투표를 시작해 주세요.');
+    hostChanged();
+  }
+  // 모두: 타이머 표시
+  if (V && V.timer && L.screen === 'room') {
+    const left = vTimeLeft(), C = 2 * Math.PI * 90;
+    const n = document.getElementById('tnum'), ring = document.getElementById('ring'), box = document.getElementById('timer');
+    if (n) n.textContent = mmss(left);
+    if (ring) ring.style.strokeDashoffset = C * (1 - left / V.timer.total);
+    if (box) box.classList.toggle('low', left <= 10000);
+  }
+}, 250);
+
+setInterval(() => {
+  // 참가자: 살아있다고 알리고, 방장 응답이 없으면 다시 연결
+  if (net.mode === 'client' && net.conn && net.conn.open) {
+    // 핑을 보낸 뒤 10초 동안 아무 응답이 없을 때만 끊긴 것으로 본다 (폰이 잠들어 타이머가 느려져도 오판하지 않게)
+    if (net.awaiting && Date.now() - net.awaiting > 10000) { const c = net.conn; net.conn = null; net.awaiting = 0; try { c.close(); } catch (e) {} clientLost(); }
+    else if (!net.awaiting) { try { net.conn.send({t:'ping'}); net.awaiting = Date.now(); } catch (e) {} }
+  }
+  // 방장: 응답 없는 참가자 표시
+  if (net.mode === 'host' && H) {
+    let changed = false;
+    for (const p of H.players) {
+      if (p.id !== H.hostId && p.online && Date.now() - (p.lastSeen || 0) > 25000) { p.online = false; changed = true; }
+    }
+    if (changed) hostChanged();
+  }
+}, 4000);
+
+// 폰을 다시 켰을 때 바로 연결 상태 확인
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || net.mode !== 'client') return;
+  if (!net.conn || !net.conn.open) { if (net.retry) { clearTimeout(net.retry); net.retry = null; } startClientPeer(); }
+  else if (!net.awaiting) { try { net.conn.send({t:'ping'}); net.awaiting = Date.now(); } catch (e) {} }
+});
+
+render();
+})();
+</script>
+</body>
+</html>
