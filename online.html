@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script src="sound.js"></script>
+<script src="bots.js"></script>
 <style>
 :root{
   --space:#0A0E1F; --space-2:#10163A; --panel:#161D3D; --panel-2:#212A55; --line:#2E3A6C;
@@ -158,6 +159,15 @@ footer{display:flex;flex-direction:column;gap:10px;padding-block:10px 16px}
 .switch[aria-pressed="true"]{background:var(--hazard)}
 .switch[aria-pressed="true"] i{transform:translateX(22px);background:var(--hazard-ink)}
 .summary{display:flex;flex-wrap:wrap;gap:6px}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.badge.ai,.ttag.ai{background:#1F3F5A;color:#9FD4FF}
+.mini small.ai{color:#9FD4FF;font-weight:700}
+.talks{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:8px}
+.talks li{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
+.talks .crew{width:32px;margin-top:4px}
+.talks div{background:var(--panel);border:1px solid var(--line);border-radius:4px 14px 14px 14px;padding:7px 12px 9px}
+.talks b{display:block;font-size:12px;color:#9FD4FF;letter-spacing:.04em}
+.talks p{font-size:15px;word-break:keep-all}
 
 /* 역할 카드 */
 .wholine{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-weight:700}
@@ -456,7 +466,7 @@ const vnm = id => { const p = VP(id); return p ? esc(p.name) : '?'; };
    ========================================================= */
 const HP = id => H.players.find(p => p.id === id);
 const hAlive = () => H.players.filter(p => p.alive);
-function setLine(t) { H.line = t; H.lineSeq++; }
+function setLine(t, spoken) { H.line = t; H.lineSpeak = spoken || null; H.lineSeq++; }
 
 function hSetupError() {
   const n = H.players.length, rc = H.roleCounts;
@@ -479,8 +489,42 @@ function hStart() {
   while (roles.length < n) roles.push('citizen');
   shuffle(roles);
   H.players.forEach((p, i) => { p.role = roles[i]; p.alive = true; p.known = {}; p.ready = false; });
-  Object.assign(H, {phase:'roles', day:1, log:[], sus:{}, winner:null, night:null, vote:null, timer:null, dawnInfo:null, lastInv:{}});
+  Object.assign(H, {phase:'roles', day:1, log:[], sus:{}, winner:null, night:null, vote:null, timer:null, dawnInfo:null, lastInv:{}, talks:[], brain:BOTS ? BOTS.newBrain() : null});
   setLine(`게임을 시작합니다. 마피아는 ${rc.mafia}명이에요. 각자 폰에서 역할을 확인하세요.`);
+}
+
+/* ---------- AI 플레이어 (bots.js) ----------
+   AI는 방장 폰 안에서 움직인다. 행동은 사람과 똑같이 hAct를 거쳐 규칙 검사를 받는다. */
+const BOTS = window.MafiaBots || null;
+const hasBots = () => !!BOTS && H.players.some(p => p.bot);
+function hG() {
+  const ln = [...H.log].reverse().find(e => e.t === 'night');
+  return {players:H.players, brain:H.brain || (H.brain = BOTS.newBrain()), day:H.day, settings:H.settings, counts:H.roleCounts,
+    night:H.night, lastInv:H.lastInv, lastNight:ln && H.night ? {target:ln.target, saved:ln.saved, heals:H.night.heal} : null};
+}
+function hBotSay(p, st) {
+  BOTS.observeTalk(hG(), p.id, st);
+  H.talks.push({id:p.id, text:st.text, day:H.day});
+}
+let botTimers = [], botKey = '';
+function hScheduleBots() {
+  botTimers.forEach(clearTimeout); botTimers = [];
+  if (!H || !hasBots()) return;
+  const ph = H.phase, day = H.day;
+  const later = (ms, fn) => botTimers.push(setTimeout(() => { if (H && H.phase === ph && H.day === day) fn(); }, ms));
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const bots = H.players.filter(p => p.bot);
+  if (ph === 'roles') bots.forEach(b => { if (!b.ready) later(rnd(800, 2500), () => hAct(b.id, {a:'ready'})); });
+  if (ph === 'night') {
+    const humanMafia = hAlive().some(p => !p.bot && p.role === 'mafia');
+    hAlive().filter(p => p.bot && !H.night.done[p.id]).forEach(b => {
+      // 사람 마피아 동료가 있으면 먼저 고를 시간을 준다
+      const wait = b.role === 'mafia' && humanMafia ? rnd(9000, 15000) : rnd(3000, 9000);
+      later(wait, () => { const t = BOTS.nightTarget(b, hG()); if (t) hAct(b.id, {a:'night', target:t}); });
+    });
+  }
+  if (ph === 'vote') hAlive().filter(p => p.bot && !H.vote.ballots[p.id]).forEach(b => later(rnd(4000, 11000), () => hAct(b.id, {a:'vote', target:BOTS.vote(b, hG())})));
+  if (ph === 'confirm') hAlive().filter(p => p.bot && p.id !== H.vote.accused && !H.vote.conf[p.id]).forEach(b => later(rnd(2500, 7000), () => hAct(b.id, {a:'confirm', v:BOTS.confirm(b, hG(), H.vote.accused)})));
 }
 function hStartNight() {
   H.night = {mafia:{}, draft:{}, heal:{}, inv:{}, sus:{}, picks:{}, done:{}};
@@ -500,6 +544,7 @@ function hResolveNight() {
   H.log.push({t:'night', day:H.day, target, heals, victim, saved, inv:Object.entries(N.inv)});
   H.lastInv = {...N.inv};
   H.dawnInfo = {victim, saved};
+  if (hasBots()) BOTS.observeNight(hG(), victim);
   H.phase = 'dawn';
   hCheckWin();
   const v = victim && HP(victim);
@@ -530,6 +575,7 @@ function hExecute() {
   const p = HP(H.vote.accused);
   p.alive = false;
   H.log.push({t:'exec', day:H.day, id:p.id});
+  if (hasBots()) BOTS.observeExec(hG(), p.id, H.settings.reveal ? p.role : null);
   H.phase = 'execute'; H.timer = null;
   hCheckWin();
   setLine(H.settings.reveal ? `${p.name}님이 처형되었습니다. ${p.name}님은 ${ROLES[p.role].was}.` : `${p.name}님이 처형되었습니다.`);
@@ -538,7 +584,7 @@ function hNextNight() { H.day++; hStartNight(); }
 function hEnd() { H.phase = 'end'; setLine(H.winner === 'mafia' ? '마피아가 우주선을 장악했습니다. 마피아 팀 승리!' : '마피아를 모두 찾아냈습니다. 시민 팀 승리!'); }
 function hToLobby() {
   H.players.forEach(p => { p.role = null; p.alive = true; p.known = {}; p.ready = false; });
-  Object.assign(H, {phase:'lobby', day:1, night:null, vote:null, timer:null, dawnInfo:null, winner:null});
+  Object.assign(H, {phase:'lobby', day:1, night:null, vote:null, timer:null, dawnInfo:null, winner:null, talks:[]});
   setLine('대기실로 돌아왔어요. 준비되면 다시 시작하세요.');
 }
 function hAdv() {
@@ -546,14 +592,24 @@ function hAdv() {
   if (ph === 'dawn') {
     if (H.winner) return hEnd();
     hStartTimer(H.settings.discuss); H.phase = 'discuss';
-    setLine(`${H.day}일차 낮입니다. ${fmtDur(H.settings.discuss)} 동안 자유롭게 토론하세요.`);
+    const line = `${H.day}일차 낮입니다. ${fmtDur(H.settings.discuss)} 동안 자유롭게 토론하세요.`;
+    // 살아있는 AI가 한마디씩 한다. 사람들은 화면과 음성으로 듣는다.
+    H.talks = [];
+    if (hasBots()) shuffle(hAlive().filter(p => p.bot)).forEach(b => hBotSay(b, BOTS.talk(b, hG())));
+    setLine(line, H.talks.length ? `${line} AI들의 의견입니다. ${H.talks.map(t => `${HP(t.id).name}. ${t.text}`).join(' ')}` : null);
   } else if (ph === 'discuss') {
     H.vote = {ballots:{}, conf:{}, counts:{}, skip:0, accused:null, yes:0, no:0, max:0};
     H.timer = null; H.phase = 'vote';
     setLine('긴급 회의! 각자 폰으로 마피아라고 생각하는 사람에게 투표하세요.');
   } else if (ph === 'voteResult') {
     if (!H.vote.accused) return hNextNight();
-    if (H.settings.defense) { hStartTimer(30); H.phase = 'defense'; setLine(`${HP(H.vote.accused).name}님, 30초 동안 최후 변론을 해주세요.`); }
+    if (H.settings.defense) {
+      const a = HP(H.vote.accused);
+      hStartTimer(30); H.phase = 'defense';
+      const line = `${a.name}님, 30초 동안 최후 변론을 해주세요.`;
+      if (a.bot && hasBots()) { const st = BOTS.defend(a, hG()); hBotSay(a, st); setLine(line, `${line} ${a.name}. ${st.text}`); }
+      else setLine(line);
+    }
     else hExecute();
   } else if (ph === 'defense') {
     H.timer = null; H.phase = 'confirm';
@@ -635,6 +691,15 @@ function hAct(pid, m) {
           setLine(`${name}님을 내보냈어요.`);
           break;
         }
+        case 'addBot': {
+          if (ph !== 'lobby' || !BOTS || H.players.length >= MAX_PLAYERS) return;
+          const c = COLORS.find(c => !H.players.some(x => x.color === c.id)) || COLORS[0];
+          const p = {id:'p' + (H.nextId++), token:null, bot:true, name:uniqueName(`AI ${c.name}`), color:c.id, role:null, alive:true, known:{}, online:true, lastSeen:0, ready:false};
+          H.players.push(p);
+          H.roleCounts = recommend(H.players.length);
+          setLine(`${p.name}(컴퓨터)가 들어왔어요. 지금 ${H.players.length}명이에요.`);
+          break;
+        }
         case 'start': if (ph !== 'lobby' || hSetupError()) return; hStart(); break;
         case 'adv': hAdv(); break;
         case 'pause': {
@@ -667,10 +732,11 @@ function buildView(pid) {
   const me = HP(pid), ph = H.phase, isMafia = me.role === 'mafia';
   const showRole = p => ph === 'end' || p.id === pid || (H.settings.reveal && !p.alive) || (isMafia && p.role === 'mafia');
   const v = {
-    code:H.code, phase:ph, day:H.day, line:H.line, lineSeq:H.lineSeq, isHost:pid === H.hostId,
-    settings:{...H.settings}, roleCounts:{...H.roleCounts},
-    players:H.players.map(p => ({id:p.id, name:p.name, color:p.color, alive:p.alive, host:p.id === H.hostId,
+    code:H.code, phase:ph, day:H.day, line:H.line, lineSpeak:H.lineSpeak || null, lineSeq:H.lineSeq, isHost:pid === H.hostId,
+    settings:{...H.settings}, roleCounts:{...H.roleCounts}, botsReady:!!BOTS,
+    players:H.players.map(p => ({id:p.id, name:p.name, color:p.color, alive:p.alive, host:p.id === H.hostId, bot:!!p.bot,
       online:p.id === H.hostId || p.online, role:showRole(p) ? p.role : null})),
+    talks:['discuss', 'vote', 'voteResult', 'defense', 'confirm'].includes(ph) ? (H.talks || []) : [],
     me:{id:pid, role:me.role, alive:me.alive, ready:me.ready},
     gameOver:!!H.winner,
   };
@@ -713,6 +779,9 @@ function hostChanged() {
     if (c.open && HP(pid)) { try { c.send({t:'state', v:buildView(pid)}); } catch (e) {} }
   }
   setView(buildView(H.hostId));
+  // 단계가 바뀌면 AI 행동을 예약한다 (방장 폰을 새로 연 경우도 포함)
+  const k = `${H.phase}|${H.day}`;
+  if (k !== botKey) { botKey = k; hScheduleBots(); }
 }
 
 /* ---------- 방장 네트워크 ---------- */
@@ -726,7 +795,7 @@ function createRoom(resume) {
   if (resume) {
     H = LS.get('sm.host');
     if (!H) return;
-    H.players.forEach(p => { if (p.id !== H.hostId) p.online = false; });
+    H.players.forEach(p => { if (p.id !== H.hostId && !p.bot) p.online = false; });
   } else {
     const name = L.name.trim();
     if (!name) { L.err = '이름을 먼저 적어주세요.'; return render(); }
@@ -736,7 +805,7 @@ function createRoom(resume) {
       settings:{...DEFAULTS}, roleCounts:recommend(4), line:`방을 만들었어요. 친구들에게 방 코드 ${code}를 알려주세요.`, lineSeq:1,
       log:[], sus:{}, lastInv:{}, night:null, vote:null, timer:null, dawnInfo:null, winner:null};
   }
-  net.mode = 'host'; net.opened = false; L.err = ''; L.info = '';
+  net.mode = 'host'; net.opened = false; L.err = ''; L.info = ''; botKey = '';
   L.screen = 'connecting'; L.status = resume ? `방 ${H.code}을(를) 다시 여는 중…` : '방을 여는 중…';
   render();
   openHostPeer(0, resume);
@@ -900,7 +969,7 @@ function setView(v) {
   if (V === null && net.mode === 'client') L.spoken = v.lineSeq;
   const prev = V;
   V = v;
-  if (v.lineSeq !== L.spoken) { L.spoken = v.lineSeq; if (ttsOn()) speak(v.line); }
+  if (v.lineSeq !== L.spoken) { L.spoken = v.lineSeq; if (ttsOn()) speak(v.lineSpeak || v.line); }
   render();
   onPhase(v, prev);
 }
@@ -923,10 +992,22 @@ const RULES = `<ol class="rules">
   <li><b>밤</b>모두 동시에 자기 폰으로 행동해요. 시민도 의심 가는 사람을 골라서, 폰을 만지는 모습만으로는 역할이 티 나지 않아요.</li>
   <li><b>낮</b>모여서 토론하고 각자 폰으로 투표해요. 다음 단계로 넘기는 버튼은 방장 폰에만 있어요.</li>
   <li><b>승리</b>마피아를 모두 찾아내면 시민 팀, 마피아 수가 나머지와 같아지면 마피아 팀이 이겨요.</li>
+  <li><b>AI</b>사람이 부족하면 AI를 넣을 수 있어요. AI도 역할을 받고 밤 행동과 투표를 스스로 하며, 토론 때 한마디씩 해요. AI 마피아는 거짓말도 해요.</li>
 </ol>`;
 
-const mini = p => `<div class="mini ${p.alive ? '' : 'dead'} ${p.online ? '' : 'off'}">${crew(p.color, p.alive ? '' : 'dead')}<span>${esc(p.name)}</span>${!p.alive && p.role ? `<small>${ROLES[p.role].name}</small>` : !p.online ? '<small>연결 끊김</small>' : ''}</div>`;
-const tile = (p, o = {}) => `<button class="tile ${o.sel ? 'sel' : ''}" data-act="sel" data-id="${p.id}" aria-pressed="${!!o.sel}">${o.tag ? `<span class="ttag ${o.tagCls || ''}">${o.tag}</span>` : ''}${crew(p.color)}<span class="nm">${esc(p.name)}</span></button>`;
+const mini = p => `<div class="mini ${p.alive ? '' : 'dead'} ${p.online ? '' : 'off'}">${crew(p.color, p.alive ? '' : 'dead')}<span>${esc(p.name)}</span>${!p.alive && p.role ? `<small>${ROLES[p.role].name}</small>` : !p.online ? '<small>연결 끊김</small>' : p.bot ? '<small class="ai">AI</small>' : ''}</div>`;
+const tile = (p, o = {}) => `<button class="tile ${o.sel ? 'sel' : ''}" data-act="sel" data-id="${p.id}" aria-pressed="${!!o.sel}">${o.tag ? `<span class="ttag ${o.tagCls || ''}">${o.tag}</span>` : p.bot ? '<span class="ttag ai">AI</span>' : ''}${crew(p.color)}<span class="nm">${esc(p.name)}</span></button>`;
+// AI가 최후 변론에서 한 말
+function defenseTalk(p) {
+  const t = [...(V.talks || [])].reverse().find(t => t.id === p.id && t.day === V.day);
+  return t ? `<ul class="talks"><li>${crew(p.color)}<div><b>${esc(p.name)}</b><p>${esc(t.text)}</p></div></li></ul>` : '';
+}
+// AI들이 한 말 (모두에게 공개)
+function talksHtml(title) {
+  const list = (V.talks || []).filter(t => t.day === V.day);
+  if (!list.length) return '';
+  return `<div class="sect">${title}</div><ul class="talks">${list.map(t => { const p = VP(t.id); return p ? `<li>${crew(p.color, p.alive ? '' : 'dead')}<div><b>${esc(p.name)}</b><p>${esc(t.text)}</p></div></li>` : ''; }).join('')}</ul>`;
+}
 const hostFoot = (label, cls = '') => V.isHost ? `<button class="btn ${cls}" data-act="adv">${label}</button>` : `<p class="waitnote">방장이 다음 단계로 넘기면 함께 넘어가요.</p>`;
 function progressHtml() {
   const pg = V.progress; if (!pg) return '';
@@ -1007,7 +1088,7 @@ const ROOM = {
     const n = V.players.length, rc = V.roleCounts, st = V.settings, cit = n - rc.mafia - rc.police - rc.doctor;
     const err = n < 4 ? `4명 이상 모여야 시작할 수 있어요. (지금 ${n}명)` : rc.mafia * 2 >= n ? '마피아는 전체 인원의 절반보다 적어야 해요.' : cit < 0 ? '역할 수가 인원보다 많아요.' : '';
     const qr = qrSvg(inviteUrl(V.code));
-    const rows = V.players.map(p => `<li>${crew(p.color)}<span class="nmx"><b>${esc(p.name)}</b>${p.host ? '<span class="badge">방장</span>' : ''}${p.id === V.me.id ? '<span class="state">나</span>' : ''}</span>
+    const rows = V.players.map(p => `<li>${crew(p.color)}<span class="nmx"><b>${esc(p.name)}</b>${p.host ? '<span class="badge">방장</span>' : ''}${p.bot ? '<span class="badge ai">AI</span>' : ''}${p.id === V.me.id ? '<span class="state">나</span>' : ''}</span>
       <span class="rowr"><i class="online ${p.online ? '' : 'off'}" title="${p.online ? '접속 중' : '연결 끊김'}"></i>${V.isHost && !p.host ? `<button class="x" data-act="kick" data-id="${p.id}" aria-label="${esc(p.name)} 내보내기">✕</button>` : ''}</span></li>`).join('');
     const stepRow = (r, label, val) => `<div class="srow"><span class="lbl"><i class="dot ${r}"></i>${label}</span><div class="step">
       <button data-act="rc" data-r="${r}" data-d="-1" aria-label="${label} 줄이기">−</button><b class="num">${val}</b><button data-act="rc" data-r="${r}" data-d="1" aria-label="${label} 늘리기">＋</button></div></div>`;
@@ -1030,7 +1111,11 @@ const ROOM = {
           <p class="hint">${qr ? 'QR을 찍거나 코드를 입력하면 들어와요. QR을 누르면 크게 보여요.' : '다른 폰에서 이 코드를 입력하면 들어와요.'}</p>
           ${qr && isLocalHost() ? '<p class="err" style="margin-top:6px">지금 주소(localhost)는 다른 폰에서 열 수 없어요. 코드를 입력해서 들어오게 해주세요.</p>' : ''}</div></div>
         <section class="blk"><div class="blk-h"><h3>참가자</h3><span class="count">${n}명</span></div><ul class="plist2">${rows}</ul>
-          <button class="btn ghost sm" data-act="colorSheet">내 캐릭터 색 바꾸기</button></section>
+          <div class="btnrow">
+            <button class="btn ghost sm" data-act="colorSheet">내 캐릭터 색 바꾸기</button>
+            ${V.isHost && V.botsReady ? `<button class="btn ghost sm" data-act="addBot" ${n >= MAX_PLAYERS ? 'disabled' : ''}>＋ AI 추가</button>` : ''}
+          </div>
+          ${V.isHost && V.botsReady ? '<p class="hint" style="margin-top:8px">사람이 부족하면 AI를 넣어보세요. AI는 방장 폰에서 스스로 밤 행동과 투표를 하고, 토론 때 한마디씩 해요.</p>' : ''}</section>
         ${cfg}`,
       foot: V.isHost ? `${err ? `<p class="err">${esc(err)}</p>` : ''}<button class="btn" data-act="start" ${err ? 'disabled' : ''}>게임 시작</button>`
         : `<p class="waitnote">방장이 게임을 시작하면 역할이 배정돼요.</p>`,
@@ -1112,7 +1197,7 @@ const ROOM = {
   discuss() {
     return {
       body: `<div class="chips" style="justify-content:center"><span class="chip">${V.day}일차 낮 · 토론</span></div>${timerBlock(false)}
-        <p class="hint" style="text-align:center;margin-bottom:16px">${V.isHost ? "방장 폰을 가운데 두고" : "폰은 내려놓고"} 얼굴 보며 이야기하세요. 1분 남았을 때와 끝날 때 방장 폰에서 소리로 알려드려요.</p><div class="sect">생존자 ${vAlive().length}명</div><div class="roster">${V.players.map(mini).join('')}</div>`,
+        <p class="hint" style="text-align:center;margin-bottom:16px">${V.isHost ? "방장 폰을 가운데 두고" : "폰은 내려놓고"} 얼굴 보며 이야기하세요. 1분 남았을 때와 끝날 때 방장 폰에서 소리로 알려드려요.</p>${talksHtml('AI들의 의견')}<div class="sect">생존자 ${vAlive().length}명</div><div class="roster">${V.players.map(mini).join('')}</div>`,
       foot: hostFoot('투표로 넘어가기', 'red'),
     };
   },
@@ -1123,13 +1208,13 @@ const ROOM = {
     const banner = `<div class="emergency"><div class="stripe"></div><div class="in"><div class="ebtn" aria-hidden="true"></div><div class="etitle">긴급 회의</div><p class="hint">누가 누구를 찍었는지는 공개되지 않아요.</p></div></div>`;
     if (vt.mine) {
       const pick = vt.mine === 'skip' ? '기권' : `${vnm(vt.mine)}님`;
-      return {body:`${banner}<div class="result"><div class="verdict">${pick}에게<br>투표했어요</div></div>${progressHtml()}${hostBox('지금까지 받은 표로 집계', true)}`};
+      return {body:`${banner}<div class="result"><div class="verdict">${pick}에게<br>투표했어요</div></div>${progressHtml()}${hostBox('지금까지 받은 표로 집계', true)}${talksHtml('오늘 AI들이 한 말')}`};
     }
     return {
       body: `${banner}<h2 class="ask">누구를 처형할까요?</h2>
         <div class="grid">${vAlive().filter(p => p.id !== me.id).map(p => tile(p, {sel:L.sel === p.id})).join('')}
           <button class="tile skip ${L.sel === 'skip' ? 'sel' : ''}" data-act="sel" data-id="skip" aria-pressed="${L.sel === 'skip'}"><span class="qm">?</span><span class="nm">기권</span></button></div>
-        ${progressHtml()}${hostBox('지금까지 받은 표로 집계', true)}`,
+        ${progressHtml()}${hostBox('지금까지 받은 표로 집계', true)}${talksHtml('오늘 AI들이 한 말')}`,
       foot: `<button class="btn" data-act="voteSubmit" ${L.sel ? '' : 'disabled'}>투표하기</button>`,
     };
   },
@@ -1153,7 +1238,7 @@ const ROOM = {
     const p = VP(V.vote.accused);
     return {
       body: `<div class="chips" style="justify-content:center"><span class="chip">최후 변론</span></div>
-        <div class="center auto">${crew(p.color, 'md bob')}<h2 class="big">${esc(p.name)}</h2><p class="lede">${p.id === V.me.id ? '억울하다면 지금 말해주세요.' : `${esc(p.name)}님의 말을 들어보세요.`}</p></div>${timerBlock(true)}`,
+        <div class="center auto">${crew(p.color, 'md bob')}<h2 class="big">${esc(p.name)}</h2><p class="lede">${p.id === V.me.id ? '억울하다면 지금 말해주세요.' : `${esc(p.name)}님의 말을 들어보세요.`}</p></div>${timerBlock(true)}${p.bot ? defenseTalk(p) : ''}`,
       foot: hostFoot('찬반 투표 시작', 'red'),
     };
   },
@@ -1331,6 +1416,7 @@ const UIACT = {
   colorSheet() { L.sheet = 'color'; render(); },
   setColor(d) { L.sheet = null; send('color', {c:d.c}); render(); },
   kick(d) { send('kick', {id:d.id}); },
+  addBot() { send('addBot'); },
   rc(d) { send('rc', {r:d.r, d:Number(d.d)}); },
   recommend() { send('recommend'); },
   disc(d) { send('disc', {d:Number(d.d)}); },
@@ -1510,7 +1596,7 @@ setInterval(() => {
   if (net.mode === 'host' && H) {
     let changed = false;
     for (const p of H.players) {
-      if (p.id !== H.hostId && p.online && Date.now() - (p.lastSeen || 0) > 25000) { p.online = false; changed = true; }
+      if (p.id !== H.hostId && !p.bot && p.online && Date.now() - (p.lastSeen || 0) > 25000) { p.online = false; changed = true; }
     }
     if (changed) hostChanged();
   }

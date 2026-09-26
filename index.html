@@ -104,6 +104,16 @@ footer{display:flex;flex-direction:column;gap:10px;padding-block:10px 16px}
 .blk-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
 .blk-h h3{font-size:13px;letter-spacing:.14em;color:var(--muted)}
 .count{font-family:var(--display);color:var(--hazard);font-size:18px}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat.ai{color:#9FD4FF;font-weight:700;font-size:10px}
+.tile .tag.ai{background:#1F3F5A;color:#9FD4FF}
+.mini small.ai{font-size:10.5px;color:#9FD4FF;font-weight:700}
+.talks{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:8px}
+.talks li{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
+.talks .crew{width:32px;margin-top:4px}
+.talks div{background:var(--panel);border:1px solid var(--line);border-radius:4px 14px 14px 14px;padding:7px 12px 9px}
+.talks b{display:block;font-size:12px;color:#9FD4FF;letter-spacing:.04em}
+.talks p{font-size:15px;word-break:keep-all}
 .plist{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:8px}
 .prow{display:grid;grid-template-columns:18px 50px 1fr 40px;gap:8px;align-items:center}
 .seat{font-size:12px;color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
@@ -299,6 +309,7 @@ footer{display:flex;flex-direction:column;gap:10px;padding-block:10px 16px}
 <div id="app"></div>
 
 <script src="sound.js"></script>
+<script src="bots.js"></script>
 
 <script>
 (() => {
@@ -363,8 +374,14 @@ function hostSvg() {
     <rect x="44" y="-1" width="34" height="5" fill="#F7C948"/>
     <rect x="34" y="4" width="54" height="7" rx="3.5" fill="#1A1B26" stroke="#0B0B12" stroke-width="4"/></svg>`;
 }
-const mini = p => `<div class="mini ${p.alive ? '' : 'dead'}">${crew(p.color, p.alive ? '' : 'dead')}<span>${esc(p.name)}</span></div>`;
-const tile = (p, act, o = {}) => `<button class="tile ${o.sel ? 'sel' : ''}" data-act="${act}" data-id="${p.id}" aria-pressed="${!!o.sel}">${o.tag ? `<span class="tag ${o.tagCls || ''}">${o.tag}</span>` : ''}${crew(p.color)}<span class="nm">${esc(p.name)}</span></button>`;
+const mini = p => `<div class="mini ${p.alive ? '' : 'dead'}">${crew(p.color, p.alive ? '' : 'dead')}<span>${esc(p.name)}</span>${p.bot ? '<small class="ai">AI</small>' : ''}</div>`;
+// AI들이 한 말 (모두에게 공개)
+function talksHtml(title, onlyId) {
+  const list = (S.talks || []).filter(t => t.day === S.day && (!onlyId || t.id === onlyId)).slice(onlyId ? -1 : 0);
+  if (!list.length) return '';
+  return `${title ? `<div class="sect">${title}</div>` : ''}<ul class="talks">${list.map(t => { const p = P(t.id); return `<li>${crew(p.color, p.alive ? '' : 'dead')}<div><b>${esc(p.name)}</b><p>${esc(t.text)}</p></div></li>`; }).join('')}</ul>`;
+}
+const tile = (p, act, o = {}) => `<button class="tile ${o.sel ? 'sel' : ''}" data-act="${act}" data-id="${p.id}" aria-pressed="${!!o.sel}">${o.tag ? `<span class="tag ${o.tagCls || ''}">${o.tag}</span>` : p.bot ? '<span class="tag ai">AI</span>' : ''}${crew(p.color)}<span class="nm">${esc(p.name)}</span></button>`;
 
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 function load() { try { const t = localStorage.getItem(KEY); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
@@ -433,13 +450,17 @@ function keepAwake() {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
 
 /* ---------- 진행 ---------- */
-function go(screen, line, silent) {
+function go(screen, line, silent, spoken) {
   const prev = S.screen;
   S.screen = screen;
-  if (line != null) { S.line = line; S.lineSeq++; S.silent = !!silent; }
+  if (line != null) { S.line = line; S.lineSpeak = spoken || null; S.lineSeq++; S.silent = !!silent; }
   UI.quitArm = false;
   save(); render();
   onScreen(screen, prev);
+}
+function startQueue(kind, ids) {
+  S.q = {kind, ids, i:0};
+  if (ids.length) go('pass', passLine()); else finishQueue();
 }
 function passLine() { const p = cur(); return `${p.name}님 차례예요. 폰을 ${p.name}님에게 넘겨주세요.`; }
 function nextInQueue() {
@@ -466,11 +487,15 @@ function checkWin() {
 }
 function startNight() {
   S.night = {mafia:{}, heal:{}, inv:{}, sus:{}};
-  S.q = {kind:'night', ids:alive().map(p => p.id), i:0};
+  S.q = {kind:'night', ids:alive().filter(p => !p.bot).map(p => p.id), i:0};
+  botsNight();
   go('nightIntro', `${S.day}번째 밤이 되었습니다. 모두 고개를 숙이고, 폰을 받은 사람만 화면을 보세요.`);
 }
 function resolveNight() {
   const N = S.night, cnt = {};
+  // 마피아 AI는 사람 마피아 동료의 선택을 따른다
+  const humanPick = alive().filter(p => !p.bot && p.role === 'mafia' && N.mafia[p.id]).map(p => N.mafia[p.id])[0];
+  if (humanPick) alive().filter(p => p.bot && p.role === 'mafia').forEach(b => { N.mafia[b.id] = humanPick; });
   Object.values(N.mafia).forEach(t => cnt[t] = (cnt[t] || 0) + 1);
   const max = Math.max(0, ...Object.values(cnt));
   const tops = Object.keys(cnt).filter(k => cnt[k] === max);
@@ -481,6 +506,8 @@ function resolveNight() {
   Object.values(N.sus).forEach(t => S.sus[t] = (S.sus[t] || 0) + 1);
   S.log.push({t:'night', day:S.day, target, heals, victim, saved, inv:Object.entries(N.inv)});
   S.dawnInfo = {victim, saved};
+  S.lastInv = {...N.inv};
+  if (hasBots()) BOTS.observeNight(G(), victim);
   checkWin();
 }
 function startTimer(sec) { S.timer = {end:Date.now() + sec * 1000, total:sec * 1000, left:null, done:false}; }
@@ -489,12 +516,35 @@ function execute() {
   const id = S.vote.accused, p = P(id);
   p.alive = false;
   S.log.push({t:'exec', day:S.day, id});
+  if (hasBots()) BOTS.observeExec(G(), id, S.settings.reveal ? p.role : null);
   checkWin();
   go('execute', S.settings.reveal ? `${p.name}님이 처형되었습니다. ${p.name}님은 ${ROLES[p.role].was}.` : `${p.name}님이 처형되었습니다.`);
+}
+/* ---------- AI 플레이어 (bots.js) ----------
+   AI는 폰을 받지 않는다. 밤 행동과 투표는 알아서 하고, 토론 때 한마디씩 한다. */
+const BOTS = window.MafiaBots || null;
+const hasBots = () => !!BOTS && S.players.some(p => p.bot);
+function G() {
+  const ln = [...S.log].reverse().find(e => e.t === 'night');
+  return {players:S.players, brain:S.brain || (S.brain = BOTS.newBrain()), day:S.day, settings:S.settings, counts:S.roleCounts,
+    night:S.night, lastInv:S.lastInv || {}, lastNight:ln && S.night ? {target:ln.target, saved:ln.saved, heals:S.night.heal} : null};
+}
+function botSay(p, st) { BOTS.observeTalk(G(), p.id, st); S.talks.push({id:p.id, text:st.text, day:S.day}); }
+function botsNight() {
+  if (!hasBots()) return;
+  const N = S.night;
+  alive().filter(p => p.bot).forEach(b => {
+    const t = BOTS.nightTarget(b, G()); if (!t) return;
+    if (b.role === 'mafia') N.mafia[b.id] = t;
+    else if (b.role === 'police') { N.inv[b.id] = t; b.known[t] = P(t).role === 'mafia' ? 'mafia' : 'town'; }
+    else if (b.role === 'doctor') N.heal[b.id] = t;
+    else N.sus[b.id] = t;
+  });
 }
 function setupError() {
   const n = S.players.length, rc = S.roleCounts;
   if (n < 4) return '4명 이상 모여야 시작할 수 있어요.';
+  if (!S.players.some(p => !p.bot)) return '사람이 1명 이상 있어야 해요.';
   if (rc.mafia * 2 >= n) return '마피아는 전체 인원의 절반보다 적어야 해요.';
   if (rc.mafia + rc.police + rc.doctor > n) return '역할 수가 인원보다 많아요.';
   const names = S.players.map(p => (p.name.trim() || CMAP[p.color].name));
@@ -510,6 +560,7 @@ const RULES = `<ol class="rules">
   <li><b>아침</b>사회자가 지난밤 결과를 발표해요.</li>
   <li><b>낮</b>토론한 뒤 투표해요. 가장 많은 표를 받은 사람은 최후 변론을 하고, 찬반 투표로 처형 여부가 정해져요.</li>
   <li><b>승리</b>마피아를 모두 찾아내면 시민 팀, 마피아 수가 나머지와 같아지면 마피아 팀이 이겨요.</li>
+  <li><b>AI</b>사람이 부족하면 AI를 넣을 수 있어요. AI도 역할을 받고 밤 행동과 투표를 스스로 하며, 토론 때 한마디씩 해요. AI 마피아는 거짓말도 해요.</li>
 </ol>`;
 
 const SCREENS = {
@@ -545,12 +596,15 @@ const SCREENS = {
     return {
       body: `<h2 class="h">게임 준비</h2>
       <section class="blk"><div class="blk-h"><h3>참가자</h3><span class="count">${n}명</span></div>
-        <ul class="plist">${S.players.map((p, i) => `<li class="prow"><span class="seat">${i + 1}</span>
+        <ul class="plist">${S.players.map((p, i) => `<li class="prow"><span class="seat ${p.bot ? 'ai' : ''}">${p.bot ? 'AI' : i + 1}</span>
           <button class="pcolor" data-act="pickColor" data-id="${p.id}" aria-label="${esc(p.name)} 색 바꾸기">${crew(p.color)}</button>
           <input class="pname" id="name-${p.id}" data-id="${p.id}" maxlength="8" autocomplete="off" value="${esc(p.name)}" placeholder="${CMAP[p.color].name}" aria-label="${i + 1}번 참가자 이름">
           <button class="x" data-act="removePlayer" data-id="${p.id}" aria-label="${esc(p.name)} 빼기">✕</button></li>`).join('')}</ul>
-        <button class="btn ghost" data-act="addPlayer" ${n >= 18 ? 'disabled' : ''}>＋ 참가자 추가</button>
-        <p class="hint" style="margin-top:8px">앉은 순서대로 적어주세요. 이 순서대로 폰을 돌려요. 캐릭터를 누르면 색을 바꿀 수 있어요.</p>
+        <div class="btnrow">
+          <button class="btn ghost" data-act="addPlayer" ${n >= 18 ? 'disabled' : ''}>＋ 사람 추가</button>
+          ${BOTS ? `<button class="btn ghost" data-act="addBot" ${n >= 18 ? 'disabled' : ''}>＋ AI 추가</button>` : ''}
+        </div>
+        <p class="hint" style="margin-top:8px">앉은 순서대로 적어주세요. 이 순서대로 폰을 돌려요. 캐릭터를 누르면 색을 바꿀 수 있어요.${BOTS ? ' 사람이 부족하면 AI를 넣어보세요. AI는 폰을 받지 않고 알아서 행동하며, 토론 때 한마디씩 해요.' : ''}</p>
       </section>
       <section class="blk"><div class="blk-h"><h3>역할 구성</h3><button class="link" data-act="recommend">인원에 맞게 추천</button></div>
         ${stepRow('mafia', '마피아', rc.mafia)}${stepRow('police', '경찰', rc.police)}${stepRow('doctor', '의사', rc.doctor)}
@@ -627,8 +681,8 @@ const SCREENS = {
     const a = alive();
     return {
       body: `<div class="center"><div class="moon"></div><p class="eyebrow">밤이 되었습니다</p><h2 class="big">${S.day}번째 밤</h2>
-        <p class="lede">살아있는 ${a.length}명이 차례로 폰을 받아요. 시민도 똑같이 받아서 행동해요.</p>
-        <div class="order">${a.map((p, i) => `<span>${crew(p.color)}${esc(p.name)}${i < a.length - 1 ? ' →' : ''}</span>`).join('')}</div></div>`,
+        <p class="lede">살아있는 사람 ${a.filter(p => !p.bot).length}명이 차례로 폰을 받아요. 시민도 똑같이 받아서 행동해요.${a.some(p => p.bot) ? ' AI는 알아서 행동해요.' : ''}</p>
+        <div class="order">${a.filter(p => !p.bot).map((p, i, h) => `<span>${crew(p.color)}${esc(p.name)}${i < h.length - 1 ? ' →' : ''}</span>`).join('')}</div></div>`,
       foot: `<button class="btn" data-act="toPass">밤 시작</button>`,
     };
   },
@@ -641,7 +695,7 @@ const SCREENS = {
       targets = alive().filter(p => p.role !== 'mafia');
       const mates = alive().filter(p => p.role === 'mafia' && p.id !== me.id);
       extra = mates.length
-        ? `<div class="note"><b>동료의 선택</b>${mates.map(m => `<span class="mate">${crew(m.color)}${esc(m.name)} → ${S.night.mafia[m.id] ? nm(S.night.mafia[m.id]) : '아직 고르지 않았어요'}</span>`).join('')}</div>`
+        ? `<div class="note"><b>동료의 선택</b>${mates.map(m => `<span class="mate">${crew(m.color)}${esc(m.name)} → ${S.night.mafia[m.id] ? nm(S.night.mafia[m.id]) + (m.bot ? ' (AI 추천 · 내가 고르면 AI가 따라요)' : '') : '아직 고르지 않았어요'}</span>`).join('')}</div>`
         : `<div class="note">혼자 남은 마피아예요. 내 선택이 그대로 결정돼요.</div>`;
       if (mates.length) hint = '동료와 선택이 갈리면 표가 많은 쪽, 같으면 무작위로 정해져요.';
     } else if (r === 'police') {
@@ -699,7 +753,7 @@ const SCREENS = {
     };
   },
 
-  discuss() { return timerScreen(`${S.day}일차 낮 · 토론`, `<p class="hint" style="text-align:center;margin-bottom:16px">폰은 가운데 두고 얼굴 보며 이야기하세요. 1분 남았을 때와 끝날 때 소리로 알려드려요.</p><div class="sect">생존자 ${alive().length}명</div><div class="roster">${S.players.map(mini).join('')}</div>`, `<button class="btn" data-act="startVote">투표로 넘어가기</button>`); },
+  discuss() { return timerScreen(`${S.day}일차 낮 · 토론`, `<p class="hint" style="text-align:center;margin-bottom:16px">폰은 가운데 두고 얼굴 보며 이야기하세요. 1분 남았을 때와 끝날 때 소리로 알려드려요.</p>${talksHtml('AI들의 의견')}<div class="sect">생존자 ${alive().length}명</div><div class="roster">${S.players.map(mini).join('')}</div>`, `<button class="btn" data-act="startVote">투표로 넘어가기</button>`); },
 
   voteIntro() {
     const secret = S.settings.voteMode === 'secret';
@@ -707,8 +761,8 @@ const SCREENS = {
       body: `<div class="emergency"><div class="stripe"></div><div class="in">
         <div class="ebtn" aria-hidden="true"></div><div class="etitle">긴급 회의</div>
         <p class="lede">${secret ? '폰을 차례로 돌려 몰래 투표해요. 누가 누구를 찍었는지는 공개되지 않아요.' : '한 사람씩 이름을 부르면 손을 들어 투표하고, 표 수를 입력해요.'}</p>
-        <div class="chips"><span class="chip">투표 가능 ${alive().length}명</span><span class="chip">${secret ? '비밀 투표' : '공개 투표'}</span></div>
-      </div><div class="stripe"></div></div>`,
+        <div class="chips"><span class="chip">투표 가능 ${alive().length}명</span><span class="chip">${secret ? '비밀 투표' : '공개 투표'}</span>${alive().some(p => p.bot) ? '<span class="chip">AI는 자동으로 투표해요</span>' : ''}</div>
+      </div><div class="stripe"></div></div>${talksHtml('오늘 AI들이 한 말')}`,
       foot: `<button class="btn red" data-act="voteBegin">투표 시작</button>`,
     };
   },
@@ -730,7 +784,7 @@ const SCREENS = {
       body: `<h2 class="ask">받은 표 수를 입력하세요</h2>
         ${a.map(p => `<div class="crow">${crew(p.color)}<span class="nm">${esc(p.name)}</span><div class="step">
           <button data-act="cnt" data-id="${p.id}" data-d="-1" aria-label="${esc(p.name)} 표 빼기">−</button><b class="num">${c[p.id] || 0}</b><button data-act="cnt" data-id="${p.id}" data-d="1" aria-label="${esc(p.name)} 표 더하기">＋</button></div></div>`).join('')}
-        <p class="hint" style="margin-top:8px">총 ${total}표 · 투표 가능 ${a.length}명${total > a.length ? ' · 표가 인원보다 많아요' : ''}</p>`,
+        <p class="hint" style="margin-top:8px">총 ${total}표 · 투표 가능 ${a.length}명${total > a.length ? ' · 표가 인원보다 많아요' : ''}${S.vote.botVotes ? ` · AI ${S.vote.botVotes}명의 표는 이미 들어가 있어요 (사람 표만 더하세요)` : ''}</p>`,
       foot: `<button class="btn" data-act="tally">집계하기</button>`,
     };
   },
@@ -756,7 +810,7 @@ const SCREENS = {
 
   defense() {
     const p = P(S.vote.accused);
-    return timerScreen('최후 변론', `<div class="center" style="min-height:auto">${crew(p.color, 'md bob')}<h2 class="big">${esc(p.name)}</h2><p class="lede">억울하다면 지금 말해주세요.</p></div>`, `<button class="btn red" data-act="confirmBegin">찬반 투표</button>`, true);
+    return timerScreen('최후 변론', `<div class="center" style="min-height:auto">${crew(p.color, 'md bob')}<h2 class="big">${esc(p.name)}</h2><p class="lede">${p.bot ? 'AI의 변론을 들어보세요.' : '억울하다면 지금 말해주세요.'}</p></div>${p.bot ? talksHtml('', p.id) : ''}`, `<button class="btn red" data-act="confirmBegin">찬반 투표</button>`, true);
   },
 
   confirm() {
@@ -779,7 +833,7 @@ const SCREENS = {
     return {
       body: `<div class="center" style="min-height:auto;margin-bottom:16px">${crew(a.color, 'md')}<h2 class="ask" style="margin:0">${esc(a.name)}님 처형 찬반</h2></div>
         ${row('yesN', '찬성 (처형)')}${row('noN', '반대 (살려둠)')}
-        <p class="hint" style="margin-top:8px">${esc(a.name)}님을 뺀 ${alive().length - 1}명이 투표할 수 있어요.</p>`,
+        <p class="hint" style="margin-top:8px">${esc(a.name)}님을 뺀 ${alive().length - 1}명이 투표할 수 있어요.${v.botYes + v.botNo ? ` AI 표(찬성 ${v.botYes}, 반대 ${v.botNo})는 이미 들어가 있어요.` : ''}</p>`,
       foot: `<button class="btn" data-act="confirmTally">결과 보기</button>`,
     };
   },
@@ -907,7 +961,7 @@ function render() {
 
   if (scr === 'role') bindRoleCard();
   if (scr === 'nightDone') tick();
-  if (S.lineSeq !== spokenSeq) { spokenSeq = S.lineSeq; if (!S.silent) speak(S.line); }
+  if (S.lineSeq !== spokenSeq) { spokenSeq = S.lineSeq; if (!S.silent) speak(S.lineSpeak || S.line); }
 }
 
 function bindRoleCard() {
@@ -992,6 +1046,16 @@ const ACT = {
     const inp = document.getElementById('name-' + p.id);
     if (inp) { inp.focus(); inp.select(); inp.scrollIntoView({block:'center'}); }
   },
+  addBot() {
+    if (S.players.length >= 18 || !BOTS) return;
+    const p = addPlayerObj();
+    p.bot = true;
+    let name = `AI ${CMAP[p.color].name}`, i = 2;
+    while (S.players.some(x => x !== p && x.name === name)) name = `AI ${CMAP[p.color].name}${i++}`;
+    p.name = name;
+    S.roleCounts = recommend(S.players.length);
+    save(); render();
+  },
   removePlayer(d) { S.players = S.players.filter(p => p.id !== d.id); S.roleCounts = recommend(S.players.length); save(); render(); },
   pickColor(d) { UI.sheet = 'color'; UI.pickFor = d.id; render(); },
   setColor(d) {
@@ -1025,11 +1089,12 @@ const ACT = {
     while (roles.length < n) roles.push('citizen');
     shuffle(roles);
     S.players.forEach((p, i) => { p.name = p.name.trim() || CMAP[p.color].name; p.role = roles[i]; p.alive = true; p.known = {}; });
-    Object.assign(S, {day:1, log:[], sus:{}, winner:null, night:null, vote:null, timer:null});
-    S.q = {kind:'role', ids:S.players.map(p => p.id), i:0};
-    go('intro', `${n}명이 모였네요. 마피아는 ${rc.mafia}명이에요. 지금부터 역할을 나눠드릴게요.`);
+    Object.assign(S, {day:1, log:[], sus:{}, winner:null, night:null, vote:null, timer:null, talks:[], lastInv:{}, brain:BOTS ? BOTS.newBrain() : null});
+    S.q = {kind:'role', ids:S.players.filter(p => !p.bot).map(p => p.id), i:0};
+    const bots = S.players.filter(p => p.bot).length;
+    go('intro', `${n}명이 모였네요. 마피아는 ${rc.mafia}명이에요. ${bots ? `AI ${bots}명은 알아서 역할을 받았어요. ` : ''}지금부터 역할을 나눠드릴게요.`);
   },
-  toPass() { go('pass', passLine()); },
+  toPass() { if (S.q.ids.length) go('pass', passLine()); else finishQueue(); },
   passOk() {
     S.sel = null; S.seen = false; S.turnStart = Date.now();
     const k = S.q.kind;
@@ -1057,7 +1122,13 @@ const ACT = {
     if (v && S.settings.reveal) line += ` ${v.name}님은 ${ROLES[v.role].was}.`;
     go('dawn', line);
   },
-  startDiscuss() { startTimer(S.settings.discuss); go('discuss', `${S.day}일차 낮입니다. ${fmtDur(S.settings.discuss)} 동안 자유롭게 토론하세요.`); },
+  startDiscuss() {
+    startTimer(S.settings.discuss);
+    const line = `${S.day}일차 낮입니다. ${fmtDur(S.settings.discuss)} 동안 자유롭게 토론하세요.`;
+    S.talks = [];
+    if (hasBots()) shuffle(alive().filter(p => p.bot)).forEach(b => botSay(b, BOTS.talk(b, G())));
+    go('discuss', line, false, S.talks.length ? `${line} AI들의 의견입니다. ${S.talks.map(t => `${P(t.id).name}. ${t.text}`).join(' ')}` : null);
+  },
   pause() {
     const t = S.timer;
     if (t.left == null) t.left = timeLeft(); else { t.end = Date.now() + t.left; t.left = null; }
@@ -1070,8 +1141,13 @@ const ACT = {
   },
   startVote() { go('voteIntro', '긴급 회의! 마피아라고 생각하는 사람에게 투표해 주세요.'); },
   voteBegin() {
-    S.vote = {ballots:{}, counts:{}, skip:0, accused:null, conf:{}, yesN:0, noN:0, yes:0, no:0};
-    if (S.settings.voteMode === 'secret') { S.q = {kind:'vote', ids:alive().map(p => p.id), i:0}; go('pass', passLine()); }
+    S.vote = {ballots:{}, counts:{}, skip:0, accused:null, conf:{}, yesN:0, noN:0, yes:0, no:0, botVotes:0};
+    if (hasBots()) alive().filter(p => p.bot).forEach(b => {
+      const t = BOTS.vote(b, G());
+      S.vote.ballots[b.id] = t; S.vote.botVotes++;
+      if (t !== 'skip') S.vote.counts[t] = (S.vote.counts[t] || 0) + 1;   // 공개 투표일 때 미리 들어가는 AI 표
+    });
+    if (S.settings.voteMode === 'secret') startQueue('vote', alive().filter(p => !p.bot).map(p => p.id));
     else go('openVote', '한 사람씩 이름을 부를게요. 투표할 사람은 손을 들어주세요. 표 수를 입력하면 돼요.');
   },
   voteSubmit() { S.vote.ballots[cur().id] = S.sel; nextInQueue(); },
@@ -1089,9 +1165,22 @@ const ACT = {
     const line = v.accused ? `${P(v.accused).name}님이 ${max}표로 가장 많은 표를 받았습니다.` : max ? '동점이라 오늘은 아무도 처형되지 않습니다.' : '표가 없어 오늘은 아무도 처형되지 않습니다.';
     go('voteResult', line);
   },
-  beginDefense() { startTimer(30); go('defense', `${P(S.vote.accused).name}님, 30초 동안 최후 변론을 해주세요.`); },
+  beginDefense() {
+    const a = P(S.vote.accused);
+    startTimer(30);
+    const line = `${a.name}님, 30초 동안 최후 변론을 해주세요.`;
+    if (a.bot && hasBots()) { const st = BOTS.defend(a, G()); botSay(a, st); go('defense', line, false, `${line} ${a.name}. ${st.text}`); }
+    else go('defense', line);
+  },
   confirmBegin() {
-    if (S.settings.voteMode === 'secret') { S.q = {kind:'confirm', ids:alive().filter(p => p.id !== S.vote.accused).map(p => p.id), i:0}; go('pass', passLine()); }
+    const v = S.vote;
+    v.botYes = 0; v.botNo = 0;
+    if (hasBots()) alive().filter(p => p.bot && p.id !== v.accused).forEach(b => {
+      const c = BOTS.confirm(b, G(), v.accused);
+      v.conf[b.id] = c; if (c === 'yes') v.botYes++; else v.botNo++;
+    });
+    v.yesN = v.botYes; v.noN = v.botNo;   // 공개 투표일 때 미리 들어가는 AI 표
+    if (S.settings.voteMode === 'secret') startQueue('confirm', alive().filter(p => !p.bot && p.id !== v.accused).map(p => p.id));
     else go('openConfirm', `${P(S.vote.accused).name}님 처형에 찬성하는 사람은 손을 들어주세요. 다음은 반대입니다.`);
   },
   confirmSubmit() { S.vote.conf[cur().id] = S.sel; nextInQueue(); },
