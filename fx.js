@@ -73,6 +73,10 @@
 .fx-drum .fx-title{animation:fxpop .4s cubic-bezier(.2,1.5,.4,1) .1s both,drum .12s linear .5s 8}
 @keyframes drum{50%{transform:translateY(-3px) rotate(-1deg)}}
 
+/* 시민 밤 투표로 마피아 검거 */
+.fx-caught .fx-bg{background:radial-gradient(ellipse at 50% 35%,#3a3fb0,#0a0e2a 75%)}
+.fx-caught .fx-title{color:#F7C948}
+.fx-caught .fx-victim .fxcrew{filter:drop-shadow(0 0 16px #ff2d3d)}
 /* 승리 */
 .fx-town .fx-bg{background:radial-gradient(ellipse at 50% 30%,#2b64c9,#0a1330 75%)}
 .fx-mafia .fx-bg{background:radial-gradient(ellipse at 50% 40%,#7a0f1f,#12030a 75%)}
@@ -112,7 +116,7 @@
 
   let current = null;
   /**
-   * @param kind 'night' | 'dawnSafe' | 'dawnDead' | 'meeting' | 'drum' | 'townWin' | 'mafiaWin'
+   * @param kind 'night' | 'dawnSafe' | 'dawnDead' | 'caught' | 'meeting' | 'drum' | 'townWin' | 'mafiaWin'
    * @param o {title, sub, crews:[{b,s}], victim:{b,s}}
    */
   function play(kind, o = {}) {
@@ -142,6 +146,10 @@
     } else if (kind === 'drum') {
       cls = 'fx-drum'; dur = 1700;
       inner = `<div class="fx-spot"></div><div class="fx-stage"><div class="fx-title">${esc(o.title || '두구두구두구…')}</div><div class="fx-sub">${esc(o.sub || '')}</div></div>`;
+    } else if (kind === 'caught') {
+      cls = 'fx-caught'; dur = 2800;
+      inner = `<div class="fx-stage"><div class="fx-victim">${o.victim ? crew(o.victim) : ''}</div>
+        <div class="fx-title">${esc(o.title || '마피아 검거!')}</div><div class="fx-sub">${esc(o.sub || '')}</div></div>${confetti(50, PARTY)}`;
     } else if (kind === 'townWin' || kind === 'mafiaWin') {
       const town = kind === 'townWin';
       cls = town ? 'fx-town' : 'fx-mafia'; dur = 3600;
